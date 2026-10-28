@@ -7,8 +7,12 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="오답복습">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" content="#ffffff" id="themeColor">
 <title>오답 복습</title>
+<script>
+// 화면이 번쩍이지 않게 그리기 전에 밝게/어둡게 먼저 정해요
+try { const t = JSON.parse(localStorage.getItem('review-settings') || '{}').theme; if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch {}
+</script>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" href="icons/icon-192.png">
@@ -22,10 +26,30 @@
   --good:#16a34a; --good-bg:#dcf3e4;
   --warn:#d97706; --warn-bg:#fdf1cf;
   --bad:#dc2626;  --bad-bg:#fbdcdc;
+  --good-ink:#0f6b31; --raised:#ffffff;
   --font:"Noto Sans KR",-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
   color-scheme:light;
   padding-top:env(safe-area-inset-top,0px);
   padding-bottom:env(safe-area-inset-bottom,0px);
+}
+/* 다크모드: 폰 설정을 따라가고(자동), 목록 탭에서 밝게·어둡게를 직접 고를 수도 있어요 */
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#111214; --ink:#f2f2f2; --sub:#9a9a9f; --line:#2e2e32; --soft:#1e1e21;
+    --good:#22c55e; --good-bg:#12301d; --good-ink:#6ee7a0;
+    --warn:#f59e0b; --warn-bg:#3a2a0b;
+    --bad:#f05252;  --bad-bg:#3b1616;
+    --raised:#2e2e32;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#111214; --ink:#f2f2f2; --sub:#9a9a9f; --line:#2e2e32; --soft:#1e1e21;
+  --good:#22c55e; --good-bg:#12301d; --good-ink:#6ee7a0;
+  --warn:#f59e0b; --warn-bg:#3a2a0b;
+  --bad:#f05252;  --bad-bg:#3b1616;
+  --raised:#2e2e32;
+  color-scheme:dark;
 }
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);-webkit-text-size-adjust:100%}
@@ -43,7 +67,7 @@ header .date{font-size:14px;color:var(--sub);font-weight:500}
 
 .tabs{display:grid;grid-template-columns:repeat(4,1fr);background:var(--soft);border-radius:12px;padding:4px}
 .tabs button{height:38px;border:none;background:transparent;border-radius:9px;font-size:15px;font-weight:700;color:var(--sub)}
-.tabs button[aria-selected="true"]{background:var(--bg);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.tabs button[aria-selected="true"]{background:var(--raised);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.1)}
 
 .page{display:flex;flex-direction:column;gap:20px}
 .label{font-size:12px;font-weight:700;color:var(--sub);letter-spacing:0.06em;margin:0}
@@ -52,8 +76,8 @@ h2.sec{margin:0;font-size:18px;font-weight:900}
 .empty{padding:18px;border-radius:14px;background:var(--soft);color:var(--sub);font-size:14px;line-height:1.6;text-align:center;margin:0}
 .go{height:52px;border:none;border-radius:14px;background:var(--ink);color:var(--bg);font-size:16px;font-weight:700;width:100%}
 .go.line{background:var(--bg);color:var(--ink);border:2px solid var(--ink)}
-.go.ok{background:var(--good)}
-.go.bad{background:var(--bad)}
+.go.ok{background:var(--good);color:#fff}
+.go.bad{background:var(--bad);color:#fff}
 .go:disabled{opacity:.4}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .link{border:none;background:transparent;color:var(--sub);font-size:13px;font-weight:700;text-decoration:underline;padding:4px 8px;align-self:center}
@@ -69,7 +93,7 @@ h2.sec{margin:0;font-size:18px;font-weight:900}
 .retry{display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:16px;background:var(--bad-bg)}
 .retry b{font-size:16px;font-weight:900}
 .retry p{margin:4px 0 0;font-size:13px;color:var(--sub);line-height:1.6}
-.retry .go{background:var(--bad)}
+.retry .go{background:var(--bad);color:#fff}
 .week7{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
 .week7 div{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 0;border-radius:10px;background:var(--soft);font-size:11px;color:var(--sub);font-weight:500}
 .week7 b{font-size:16px;color:var(--ink);font-variant-numeric:tabular-nums}
@@ -96,7 +120,7 @@ h2.sec{margin:0;font-size:18px;font-weight:900}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chips button{height:36px;padding:0 12px;border:1px solid var(--line);border-radius:99px;background:var(--bg);font-size:14px;font-weight:700}
 .chips button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
-.chips.red button[aria-pressed="true"]{background:var(--bad);border-color:var(--bad)}
+.chips.red button[aria-pressed="true"]{background:var(--bad);border-color:var(--bad);color:#fff}
 .chips .add{border-style:dashed;color:var(--sub)}
 .seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
 .seg button{height:44px;border:1px solid var(--line);border-radius:12px;background:var(--bg);font-size:16px;font-weight:900}
@@ -116,7 +140,7 @@ h2.sec{margin:0;font-size:18px;font-weight:900}
 .res{padding:16px;border-radius:16px;display:flex;flex-direction:column;gap:4px}
 .res b{font-size:24px;font-weight:900}
 .res span{font-size:14px;line-height:1.5}
-.res.ok{background:var(--good-bg);color:#0f6b31}
+.res.ok{background:var(--good-bg);color:var(--good-ink)}
 .res.bad{background:var(--bad-bg);color:var(--bad)}
 .sol{border:1px solid var(--line);border-radius:14px;padding:0 14px}
 .sol summary{padding:14px 0;font-size:14px;font-weight:700;cursor:pointer}
@@ -126,7 +150,7 @@ h2.sec{margin:0;font-size:18px;font-weight:900}
 .filters{display:flex;flex-direction:column;gap:10px}
 .seg2{display:grid;grid-template-columns:1fr 1fr;background:var(--soft);border-radius:12px;padding:4px}
 .seg2 button{height:34px;border:none;background:transparent;border-radius:9px;font-size:14px;font-weight:700;color:var(--sub)}
-.seg2 button[aria-pressed="true"]{background:var(--bg);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.seg2 button[aria-pressed="true"]{background:var(--raised);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.1)}
 .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
 .card{display:flex;flex-direction:column;gap:6px;padding:0 0 10px;border:1px solid var(--line);border-radius:14px;background:var(--bg);text-align:left;overflow:hidden;min-width:0}
 .card img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;background:var(--soft)}
@@ -270,7 +294,7 @@ img.photo,.sol img{cursor:zoom-in}
       <label class="field">
         <span>정답</span>
         <input id="answer" placeholder="예: 3, -2, 1/2, ④" autocapitalize="off" autocorrect="off" spellcheck="false">
-        <p class="hint">복습할 때 답을 넣으면 바로 채점해요. 답이 여러 개면 '2 또는 3'처럼 적어요. 비워 두면 맞았는지 직접 골라요.</p>
+        <p class="hint">복습할 때 답을 넣으면 바로 채점해요. 비워 두면 맞았는지 직접 골라요.</p>
       </label>
 
       <div class="field">
@@ -328,7 +352,13 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 
 // 하루 최대 복습 개수(cap, 0이면 제한 없음)와 시험 대비(exam)
 let SET = loadSet();
-function loadSet() { try { return { cap: 0, exam: null, ...JSON.parse(localStorage.getItem(LS_SET) || '{}') }; } catch { return { cap: 0, exam: null }; } }
+function loadSet() { try { return { cap: 0, exam: null, theme: 'auto', ...JSON.parse(localStorage.getItem(LS_SET) || '{}') }; } catch { return { cap: 0, exam: null, theme: 'auto' }; } }
+function applyTheme() {
+  const r = document.documentElement;
+  if (SET.theme === 'light' || SET.theme === 'dark') r.dataset.theme = SET.theme; else delete r.dataset.theme;
+  $('themeColor').content = getComputedStyle(r).getPropertyValue('--bg').trim() || '#ffffff';
+}
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme());
 function saveSet() { try { localStorage.setItem(LS_SET, JSON.stringify(SET)); } catch {} }
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 
@@ -678,9 +708,6 @@ function same(a, b) {
   const p = toNum(x), q = toNum(y);
   return p !== null && q !== null && Math.abs(p - q) < 1e-9;
 }
-// 정답이 '2 또는 3', '2 | 3'이면 어느 쪽이든 정답
-const answers = it => it.answer.split(/\s*(?:또는|\|)\s*/).filter(Boolean);
-const correct = (given, it) => answers(it).some(a => same(given, a));
 
 // 하루 최대 개수: 오늘 이미 복습한 만큼 빼고 남은 자리만큼만 (오래 밀린 것부터)
 function reviewedToday() {
@@ -848,7 +875,7 @@ async function renderReview() {
         e.preventDefault();
         const given = $('ans').value.trim();
         if (!given) { toast('답을 입력해 주세요'); return; }
-        toResult({ ok: correct(given, it), given, auto: true });
+        toResult({ ok: same(given, it.answer), given, auto: true });
       };
     }
     p.querySelectorAll('[data-self]').forEach(b => b.onclick = () => toResult({ ok: b.dataset.self === '1', auto: false }));
@@ -1025,11 +1052,13 @@ function renderList() {
   h += `<input class="search" id="lq" type="search" placeholder="단원·메모·정답으로 찾기" value="${esc(lf.q)}" autocomplete="off"></div><div id="lgrid"></div>`;
   h += `<div class="box"><b>PDF 오답노트</b><p class="hint" id="pdfCount"></p><label class="check"><input type="checkbox" id="pdfAns" checked> 맨 뒤에 정답 페이지 넣기</label><label class="check"><input type="checkbox" id="pdfSpace" checked> 문제마다 풀이 칸 넣기</label><button class="go line" id="pdfBtn">PDF 만들기</button><p class="hint">인쇄 화면이 뜨면 'PDF로 저장'을 고르세요. 아이폰은 인쇄 화면 위쪽의 공유 버튼으로 PDF를 저장하거나 보낼 수 있어요.</p></div>`;
   h += `<div class="box"><b>하루 복습 개수</b><p class="hint">한꺼번에 많이 등록해도 하루에 이만큼만 나와요. 남은 문제는 다음 날 먼저 나와요.</p><div class="chips" id="capChips">${[0, 5, 10, 15, 20, 30].map(n => `<button data-cap="${n}" aria-pressed="${SET.cap === n}">${n ? n + '개' : '제한 없음'}</button>`).join('')}</div></div>`;
+  h += `<div class="box"><b>화면</b><div class="chips" id="themeChips">${[['auto', '자동 (폰 설정)'], ['light', '밝게'], ['dark', '어둡게']].map(([v, t]) => `<button data-th="${v}" aria-pressed="${SET.theme === v}">${t}</button>`).join('')}</div></div>`;
   h += `<div class="box"><b>백업</b><p class="hint">사진과 기록은 이 폰 안에만 저장돼요. 폰을 바꾸거나 사파리 기록을 지우면 사라지니 가끔 백업 파일을 저장해 두세요. 홈 화면 앱과 사파리는 저장 공간이 따로라서, 쓰던 곳에서 백업해 다른 곳에서 불러오면 옮길 수 있어요.</p><div class="two"><button class="go line" id="exportBtn">백업 저장</button><button class="go line" id="importBtn">불러오기</button></div></div>`;
   p.innerHTML = h;
   renderGrid();
   $('lq').oninput = e => { lf.q = e.target.value; renderGrid(); };
   $('pdfBtn').onclick = makePdf;
+  $('themeChips').onclick = e => { const b = e.target.closest("[data-th]"); if (b) { SET.theme = b.dataset.th; saveSet(); applyTheme(); renderList(); } };
   $('capChips').onclick = e => { const b = e.target.closest('[data-cap]'); if (b) { SET.cap = +b.dataset.cap; saveSet(); renderList(); } };
   $('doneSeg').onclick = e => { const b = e.target.closest('button'); if (b) { lf.done = b.dataset.d === '1'; renderList(); } };
   $('subjFilter').onclick = e => { const b = e.target.closest('button'); if (b) { lf.subject = b.textContent; renderList(); } };
@@ -1202,7 +1231,7 @@ $('importFile').onchange = async e => {
     for (const x of data.photos || []) { await putPhoto(x.id, await (await fetch(x.data)).blob()); forgetUrl(x.id); }
     for (const it of data.items) await putItem(it);
     for (const s of data.subjects || []) addSubject(s);
-    if (data.settings) { SET = { ...SET, ...data.settings }; saveSet(); }
+    if (data.settings) { SET = { ...SET, ...data.settings }; saveSet(); applyTheme(); }
     items = await tx('items', 'readonly', s => s.getAll());
     toast(`${data.items.length}개를 불러왔어요`);
     show(page);
@@ -1223,6 +1252,7 @@ let shownDay = today();
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && today() !== shownDay) { shownDay = today(); if (page !== 'review' && page !== 'add') show(page); }
 });
+applyTheme();
 (async () => {
   try { items = await tx('items', 'readonly', s => s.getAll()); }
   catch { $('p-today').innerHTML = '<p class="empty">이 브라우저에서는 저장 공간을 쓸 수 없어요. 사파리의 개인정보 보호 브라우징을 끄고 다시 열어 주세요.</p>'; return; }
