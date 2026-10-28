@@ -1,0 +1,779 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="오답복습">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#ffffff">
+<title>오답 복습</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap">
+<style>
+/* 공부 감시 타이머·급식표와 같은 톤: 흰 바탕 · 검은 글씨 · 굵은 고딕 */
+:root{
+  --bg:#ffffff; --ink:#111111; --sub:#707070; --line:#e7e7e7; --soft:#f5f5f5;
+  --good:#16a34a; --good-bg:#dcf3e4;
+  --warn:#d97706; --warn-bg:#fdf1cf;
+  --bad:#dc2626;  --bad-bg:#fbdcdc;
+  --font:"Noto Sans KR",-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  color-scheme:light;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);-webkit-text-size-adjust:100%}
+body{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+[hidden]{display:none!important}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer;-webkit-tap-highlight-color:transparent}
+button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.wrap{max-width:480px;margin:0 auto;padding-block:20px 48px;display:flex;flex-direction:column;gap:20px}
+
+header{display:flex;align-items:baseline;justify-content:space-between}
+header h1{margin:0;font-size:20px;font-weight:900;letter-spacing:-0.02em}
+header .date{font-size:14px;color:var(--sub);font-weight:500}
+.ghost{height:36px;padding:0 12px;border:1px solid var(--line);background:var(--bg);border-radius:10px;font-size:14px;font-weight:700}
+
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);background:var(--soft);border-radius:12px;padding:4px}
+.tabs button{height:38px;border:none;background:transparent;border-radius:9px;font-size:15px;font-weight:700;color:var(--sub)}
+.tabs button[aria-selected="true"]{background:var(--bg);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+
+.page{display:flex;flex-direction:column;gap:20px}
+.label{font-size:12px;font-weight:700;color:var(--sub);letter-spacing:0.06em;margin:0}
+h2.sec{margin:0;font-size:18px;font-weight:900}
+.hint{font-size:12px;color:var(--sub);line-height:1.6;margin:0}
+.empty{padding:18px;border-radius:14px;background:var(--soft);color:var(--sub);font-size:14px;line-height:1.6;text-align:center;margin:0}
+.go{height:52px;border:none;border-radius:14px;background:var(--ink);color:var(--bg);font-size:16px;font-weight:700;width:100%}
+.go.line{background:var(--bg);color:var(--ink);border:2px solid var(--ink)}
+.go.ok{background:var(--good)}
+.go.bad{background:var(--bad)}
+.go:disabled{opacity:.4}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.link{border:none;background:transparent;color:var(--sub);font-size:13px;font-weight:700;text-decoration:underline;padding:4px 8px;align-self:center}
+
+/* 오늘 */
+.hello{display:flex;flex-direction:column;gap:12px;padding:20px;border-radius:16px;background:var(--soft)}
+.hello b{font-size:18px;font-weight:900}
+.hello p{margin:0;font-size:14px;line-height:1.7;color:var(--sub)}
+.big{display:flex;flex-direction:column;gap:10px}
+.num{font-size:56px;line-height:1;font-weight:900;letter-spacing:-0.03em;font-variant-numeric:tabular-nums}
+.num small{font-size:20px;margin-left:4px}
+.big .sub{margin:0;font-size:14px;color:var(--warn);font-weight:700}
+.retry{display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:16px;background:var(--bad-bg)}
+.retry b{font-size:16px;font-weight:900}
+.retry p{margin:4px 0 0;font-size:13px;color:var(--sub);line-height:1.6}
+.retry .go{background:var(--bad)}
+.week7{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.week7 div{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 0;border-radius:10px;background:var(--soft);font-size:11px;color:var(--sub);font-weight:500}
+.week7 b{font-size:16px;color:var(--ink);font-variant-numeric:tabular-nums}
+.week7 .z b{color:var(--line)}
+.rows{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.rows button{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:12px 14px;border:none;background:var(--bg);text-align:left;font-size:15px}
+.rows button+button{border-top:1px solid var(--line)}
+.tag{padding:3px 8px;border-radius:7px;background:var(--soft);font-size:12px;font-weight:700}
+.rows .un{font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rows .meta{font-size:12px;color:var(--sub);font-variant-numeric:tabular-nums}
+.rows .late{color:var(--warn);font-weight:700}
+
+/* 등록 폼 */
+.field{display:flex;flex-direction:column;gap:8px}
+.field>span{font-size:13px;font-weight:700}
+.field input,.field textarea{width:100%;height:44px;padding:0 12px;border:1px solid var(--line);border-radius:12px;background:var(--bg);font-size:16px;min-width:0}
+.field textarea{height:72px;padding:10px 12px;resize:vertical;line-height:1.5}
+.field input:focus,.field textarea:focus,.ans input:focus{outline:2px solid var(--ink);outline-offset:-1px}
+.shot{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:140px;border:2px dashed var(--line);border-radius:14px;background:var(--soft);color:var(--sub);font-size:14px;font-weight:700;overflow:hidden;cursor:pointer}
+.shot.small{min-height:72px}
+.shot img{display:block;width:100%;max-height:360px;object-fit:contain;background:var(--soft)}
+.shot.has{border-style:solid}
+.shot input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{height:36px;padding:0 12px;border:1px solid var(--line);border-radius:99px;background:var(--bg);font-size:14px;font-weight:700}
+.chips button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.chips.red button[aria-pressed="true"]{background:var(--bad);border-color:var(--bad)}
+.chips .add{border-style:dashed;color:var(--sub)}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.seg button{height:44px;border:1px solid var(--line);border-radius:12px;background:var(--bg);font-size:16px;font-weight:900}
+.seg button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+
+/* 복습 */
+.rtop{display:flex;align-items:center;justify-content:space-between}
+.rtop span{font-size:14px;font-weight:700;color:var(--sub);font-variant-numeric:tabular-nums}
+.prog{height:6px;background:var(--soft);border-radius:99px;overflow:hidden}
+.prog i{display:block;height:100%;background:var(--ink);border-radius:99px}
+.rmeta{display:flex;flex-direction:column;gap:4px}
+.rmeta b{font-size:18px;font-weight:900}
+.rmeta span{font-size:13px;color:var(--sub)}
+.photo{display:block;width:100%;border-radius:14px;background:var(--soft);min-height:120px;object-fit:contain}
+.ans{display:flex;flex-direction:column;gap:10px}
+.ans input{height:56px;padding:0 16px;border:2px solid var(--ink);border-radius:14px;font-size:22px;font-weight:700;text-align:center;width:100%}
+.res{padding:16px;border-radius:16px;display:flex;flex-direction:column;gap:4px}
+.res b{font-size:24px;font-weight:900}
+.res span{font-size:14px;line-height:1.5}
+.res.ok{background:var(--good-bg);color:#0f6b31}
+.res.bad{background:var(--bad-bg);color:var(--bad)}
+.sol{border:1px solid var(--line);border-radius:14px;padding:0 14px}
+.sol summary{padding:14px 0;font-size:14px;font-weight:700;cursor:pointer}
+.sol img{display:block;width:100%;margin-bottom:14px;border-radius:10px}
+
+/* 목록 */
+.filters{display:flex;flex-direction:column;gap:10px}
+.seg2{display:grid;grid-template-columns:1fr 1fr;background:var(--soft);border-radius:12px;padding:4px}
+.seg2 button{height:34px;border:none;background:transparent;border-radius:9px;font-size:14px;font-weight:700;color:var(--sub)}
+.seg2 button[aria-pressed="true"]{background:var(--bg);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.card{display:flex;flex-direction:column;gap:6px;padding:0 0 10px;border:1px solid var(--line);border-radius:14px;background:var(--bg);text-align:left;overflow:hidden;min-width:0}
+.card img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;background:var(--soft)}
+.card b{font-size:14px;font-weight:700;padding:0 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card small{font-size:12px;color:var(--sub);padding:0 10px;font-variant-numeric:tabular-nums}
+.card small.late{color:var(--warn);font-weight:700}
+.card small.done{color:var(--good);font-weight:700}
+.box{border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.box b{font-size:15px}
+
+/* 통계 */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:14px}
+.stats div{padding:12px 8px;text-align:center;display:flex;flex-direction:column;gap:4px}
+.stats div+div{border-left:1px solid var(--line)}
+.stats small{font-size:12px;color:var(--sub);font-weight:500}
+.stats b{font-size:20px;font-variant-numeric:tabular-nums}
+.bars{display:flex;flex-direction:column;gap:10px;margin:0;padding:0;list-style:none}
+.bars li{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:center;font-size:14px}
+.bars li>span:first-child{font-weight:700;min-width:0;overflow-wrap:anywhere}
+.bars .bar{grid-column:1/-1;grid-row:2}
+.bars .bar{height:10px;background:var(--soft);border-radius:99px;overflow:hidden}
+.bars .bar i{display:block;height:100%;background:var(--ink);border-radius:99px}
+.bars.red .bar i{background:var(--bad)}
+.bars small{font-size:12px;color:var(--sub);font-variant-numeric:tabular-nums;text-align:right}
+
+/* 자세히 */
+dialog{width:min(480px,100%);max-height:100%;margin:auto auto 0;border:none;border-radius:20px 20px 0 0;padding:20px max(16px,env(safe-area-inset-left,0px)) calc(20px + env(safe-area-inset-bottom,0px));background:var(--bg);color:var(--ink)}
+dialog::backdrop{background:rgba(0,0,0,.35)}
+@media (min-width:520px){dialog{margin:auto;border-radius:20px;max-height:calc(100% - 40px)}}
+.sheet{display:flex;flex-direction:column;gap:16px}
+.sheet .top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.sheet .top h2{margin:0;font-size:18px;font-weight:900;min-width:0}
+.info{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;margin:0;font-size:14px}
+.info dt{color:var(--sub)}
+.info dd{margin:0;font-weight:700}
+.hist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.hist li{padding:10px 12px;border-radius:12px;background:var(--soft);font-size:13px;line-height:1.5;display:flex;flex-direction:column;gap:2px}
+.hist li b{font-size:14px}
+.hist li.ok b{color:var(--good)}
+.hist li.bad b{color:var(--bad)}
+.hist li span{color:var(--sub)}
+.del{height:44px;border-radius:12px;font-size:14px;font-weight:700;border:1px solid var(--bad);background:var(--bg);color:var(--bad)}
+.del.arm{background:var(--bad);color:#fff}
+
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:12px;font-size:14px;font-weight:500;max-width:calc(100% - 32px);text-align:center;z-index:20}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>오답 복습</h1>
+    <span class="date" id="date"></span>
+  </header>
+
+  <div class="tabs" role="tablist" id="tabs">
+    <button role="tab" data-p="today" aria-selected="true">오늘</button>
+    <button role="tab" data-p="add" aria-selected="false">등록</button>
+    <button role="tab" data-p="list" aria-selected="false">목록</button>
+    <button role="tab" data-p="stats" aria-selected="false">통계</button>
+  </div>
+
+  <section class="page" id="p-today"></section>
+
+  <section class="page" id="p-add" hidden>
+    <form class="page" id="addForm" autocomplete="off">
+      <label class="field">
+        <span>문제 사진</span>
+        <div class="shot" id="qShot"><span>눌러서 사진 찍기 · 고르기</span><input type="file" accept="image/*" id="qFile"></div>
+      </label>
+
+      <div class="field">
+        <span>과목</span>
+        <div class="chips" id="subjChips"></div>
+      </div>
+
+      <label class="field">
+        <span>단원</span>
+        <input id="unit" list="units" placeholder="예: 이차함수">
+        <datalist id="units"></datalist>
+      </label>
+
+      <div class="field">
+        <span>난이도</span>
+        <div class="seg" id="levelSeg">
+          <button type="button" data-l="하">하</button>
+          <button type="button" data-l="중">중</button>
+          <button type="button" data-l="상">상</button>
+        </div>
+        <p class="hint" id="levelHint"></p>
+      </div>
+
+      <label class="field">
+        <span>정답</span>
+        <input id="answer" placeholder="예: 3, -2, 1/2, ④">
+        <p class="hint">복습할 때 답을 넣으면 바로 채점해요. 비워 두면 맞았는지 직접 골라요.</p>
+      </label>
+
+      <label class="field">
+        <span>해설 사진 (선택)</span>
+        <div class="shot small" id="sShot"><span>해설·풀이 사진 추가</span><input type="file" accept="image/*" id="sFile"></div>
+      </label>
+
+      <div class="field">
+        <span>왜 틀렸나요?</span>
+        <div class="chips red" id="addReasons"></div>
+        <textarea id="addMemo" placeholder="메모 (예: 부호를 반대로 씀)"></textarea>
+      </div>
+
+      <button class="go" id="addBtn">등록하기</button>
+      <button class="link" type="button" id="cancelEdit" hidden>수정 취소</button>
+    </form>
+  </section>
+
+  <section class="page" id="p-list" hidden></section>
+  <section class="page" id="p-stats" hidden></section>
+  <section class="page" id="p-review" hidden></section>
+</div>
+
+<dialog id="detail"></dialog>
+<input type="file" id="importFile" accept=".json,application/json" hidden>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const STEPS = [1, 3, 7, 14];                // 복습 간격 (일). 14일 다음부터는 14일마다
+const NEED = { 하: 2, 중: 3, 상: 4 };       // 연속으로 이만큼 맞히면 완료 (수학은 +1)
+const BASE_SUBJECTS = ['국어', '수학', '영어', '과학', '사회', '한국사'];
+const REASONS = ['계산 실수', '개념 부족', '문제 잘못 읽음', '시간 부족', '찍음', '기타'];
+const DOW = '일월화수목금토';
+const LS_SUBJ = 'review-subjects';
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/* ---------- 날짜 (YYYY-MM-DD, 기기 시간 기준) ---------- */
+const pad = n => String(n).padStart(2, '0');
+const dstr = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const dparse = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const today = () => dstr(new Date());
+const addDays = (s, n) => { const d = dparse(s); d.setDate(d.getDate() + n); return dstr(d); };
+const diffDays = (a, b) => Math.round((dparse(b) - dparse(a)) / 864e5);
+const fmt = s => { const d = dparse(s); return `${d.getMonth() + 1}월 ${d.getDate()}일 (${DOW[d.getDay()]})`; };
+const fmtShort = s => { const d = dparse(s); return `${d.getMonth() + 1}/${d.getDate()}`; };
+
+/* ---------- 저장소: IndexedDB (문제 정보 items, 사진 photos) ---------- */
+let dbp;
+function db() {
+  return dbp ||= new Promise((res, rej) => {
+    const r = indexedDB.open('review', 1);
+    r.onupgradeneeded = () => {
+      r.result.createObjectStore('items', { keyPath: 'id' });
+      r.result.createObjectStore('photos', { keyPath: 'id' });
+    };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function tx(store, mode, fn) {
+  const d = await db();
+  return new Promise((res, rej) => {
+    const t = d.transaction(store, mode);
+    let out;
+    const r = fn(t.objectStore(store));
+    if (r) r.onsuccess = () => { out = r.result; };
+    t.oncomplete = () => res(out);
+    t.onerror = t.onabort = () => rej(t.error);
+  });
+}
+const putItem = it => tx('items', 'readwrite', s => s.put(it));
+const putPhoto = (id, blob) => tx('photos', 'readwrite', s => s.put({ id, blob }));
+const delPhoto = id => tx('photos', 'readwrite', s => s.delete(id));
+
+// 사진 id: 문제 <id>-q, 목록용 작은 사진 <id>-t, 해설 <id>-s
+const urls = new Map();
+async function photoUrl(id) {
+  if (urls.has(id)) return urls.get(id);
+  const r = await tx('photos', 'readonly', s => s.get(id));
+  const u = r ? URL.createObjectURL(r.blob) : '';
+  urls.set(id, u);
+  return u;
+}
+function forgetUrl(id) { if (urls.get(id)) URL.revokeObjectURL(urls.get(id)); urls.delete(id); }
+async function fillImgs(root) {
+  for (const img of root.querySelectorAll('img[data-ph]')) img.src = await photoUrl(img.dataset.ph);
+}
+
+// 사진은 긴 변 1600px JPEG로 줄여서 저장 (용량·백업 크기 줄이기)
+async function shrink(file, max) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('사진을 열 수 없어요')); i.src = url; });
+    const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+    const g = c.getContext('2d');
+    g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+    g.drawImage(img, 0, 0, c.width, c.height);
+    return await new Promise(res => c.toBlob(res, 'image/jpeg', 0.82));
+  } finally { URL.revokeObjectURL(url); }
+}
+
+/* ---------- 복습 규칙 ---------- */
+let items = [];
+const need = it => NEED[it.level] + (it.subject === '수학' ? 1 : 0);
+const isDue = it => !it.done && it.due <= today();
+const isRetry = it => !it.done && it.retryDay === today() && it.due > today();
+const byDue = (a, b) => a.due.localeCompare(b.due) || a.created.localeCompare(b.created);
+
+// 맞히면 다음 간격으로, 연속 정답이 채워지면 완료. 틀리면 처음(내일)부터 + 오늘 다시 풀기
+function grade(it, r) {
+  const t = today();
+  it.history.push({ day: t, ok: r.ok, given: r.given || '', reason: r.reason || '', memo: r.memo || '', retry: !!r.retry });
+  if (r.retry) {
+    it.retryDay = r.ok ? null : t;
+  } else if (r.ok) {
+    it.streak++;
+    it.retryDay = null;
+    if (it.streak >= need(it)) { it.done = true; it.doneDay = t; }
+    else it.due = addDays(t, STEPS[Math.min(it.streak, STEPS.length - 1)]);
+  } else {
+    it.streak = 0;
+    it.due = addDays(t, STEPS[0]);
+    it.retryDay = t;
+  }
+  return it;
+}
+
+// 정답 비교: 전각·동그라미 숫자(①→1), 띄어쓰기, 끝의 '번'·마침표 무시. 1/2 = 0.5 처럼 같은 값이면 정답
+const norm = s => String(s).normalize('NFKC').replace(/\s+/g, '').replace(/(번|\.)$/, '').toLowerCase();
+function toNum(s) {
+  if (/^-?\d+(\.\d+)?$/.test(s)) return +s;
+  const m = s.match(/^(-?\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)$/);
+  return m && +m[2] ? m[1] / m[2] : null;
+}
+function same(a, b) {
+  const x = norm(a), y = norm(b);
+  if (x === y) return true;
+  const p = toNum(x), q = toNum(y);
+  return p !== null && q !== null && Math.abs(p - q) < 1e-9;
+}
+
+/* ---------- 과목 ---------- */
+function customSubjects() { try { return JSON.parse(localStorage.getItem(LS_SUBJ) || '[]'); } catch { return []; } }
+function subjects() { return [...new Set([...BASE_SUBJECTS, ...customSubjects(), ...items.map(i => i.subject)])]; }
+function addSubject(name) {
+  const list = customSubjects();
+  if (!list.includes(name)) { list.push(name); try { localStorage.setItem(LS_SUBJ, JSON.stringify(list)); } catch {} }
+}
+
+/* ---------- 화면 전환 ---------- */
+let page = 'today';
+function show(p) {
+  page = p;
+  for (const s of document.querySelectorAll('.page[id^="p-"]')) s.hidden = s.id !== 'p-' + p;
+  $('tabs').hidden = p === 'review';
+  document.querySelectorAll('#tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.p === p));
+  $('date').textContent = fmt(today());
+  if (p === 'today') renderToday();
+  if (p === 'add') renderAdd();
+  if (p === 'list') renderList();
+  if (p === 'stats') renderStats();
+  if (p === 'review') renderReview();
+  scrollTo({ top: 0 });
+}
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => { if (b.dataset.p !== 'add') resetForm(); show(b.dataset.p); });
+
+function rowHTML(it) {
+  const late = it.due < today() ? `<span class="late">${diffDays(it.due, today())}일 밀림</span> · ` : '';
+  return `<button data-open="${it.id}"><span class="tag">${esc(it.subject)}</span><span class="un">${esc(it.unit || '단원 없음')}</span><span class="meta">${late}${it.level} · ${it.streak}/${need(it)}</span></button>`;
+}
+
+/* ---------- 오늘 ---------- */
+function renderToday() {
+  const p = $('p-today'), t = today();
+  if (!items.length) {
+    p.innerHTML = `<div class="hello"><b>첫 오답을 등록해 보세요</b><p>틀린 문제 사진을 올리면 1일 → 3일 → 7일 → 14일 간격으로 다시 풀 문제를 띄워 줘요. 연속으로 맞히면 끝나요 (하 2번 · 중 3번 · 상 4번, 수학은 1번씩 더).</p><button class="go" data-go="add">오답 등록하기</button></div>`;
+    return;
+  }
+  const due = items.filter(isDue).sort(byDue), retry = items.filter(isRetry);
+  const late = due.filter(i => i.due < t).length;
+  let h = `<div class="big"><span class="label">오늘 복습할 문제</span><div class="num">${due.length}<small>개</small></div>`;
+  if (late) h += `<p class="sub">밀린 문제 ${late}개 포함</p>`;
+  h += due.length ? '<button class="go" data-start="due">복습 시작</button>' : '<p class="hint">오늘 복습은 다 했어요.</p>';
+  h += '</div>';
+  if (retry.length) h += `<div class="retry"><div><b>오늘 틀린 문제 다시 풀기 ${retry.length}개</b><p>답을 본 직후보다 조금 지나서 풀면 더 잘 기억나요. 여기서 맞혀도 복습 날짜는 그대로예요.</p></div><button class="go" data-start="retry">다시 풀기</button></div>`;
+
+  h += '<div class="field"><span class="label">앞으로 7일</span><div class="week7">';
+  for (let i = 1; i <= 7; i++) {
+    const d = addDays(t, i), n = items.filter(x => !x.done && x.due === d).length;
+    h += `<div${n ? '' : ' class="z"'}>${i === 1 ? '내일' : DOW[dparse(d).getDay()]}<b>${n}</b></div>`;
+  }
+  h += '</div></div>';
+  if (due.length) h += `<div class="field"><span class="label">오늘 목록</span><div class="rows">${due.map(rowHTML).join('')}</div></div>`;
+  p.innerHTML = h;
+}
+
+document.addEventListener('click', e => {
+  const go = e.target.closest('[data-go]');
+  if (go) { show(go.dataset.go); return; }
+  const st = e.target.closest('[data-start]');
+  if (st) { startSession(st.dataset.start); return; }
+  const op = e.target.closest('[data-open]');
+  if (op) openDetail(op.dataset.open);
+});
+
+/* ---------- 복습 ---------- */
+let ses = null;   // { mode, ids, i, ok, bad, phase:'ask'|'result', r:{ok, given, auto, reason, memo} }
+
+function startSession(mode) {
+  const list = mode === 'retry' ? items.filter(isRetry) : items.filter(isDue).sort(byDue);
+  if (!list.length) return;
+  ses = { mode, ids: list.map(i => i.id), i: 0, ok: 0, bad: 0, phase: 'ask' };
+  show('review');
+}
+const cur = () => items.find(x => x.id === ses.ids[ses.i]);
+
+function planText(it, retry) {
+  if (retry) return '다시 풀기 성공! 복습 날짜는 그대로예요.';
+  const c = grade(structuredClone(it), { ok: true });
+  if (c.done) return `${need(it)}번 연속 정답! 이 문제는 완료예요.`;
+  return `다음 복습: ${fmt(c.due)} (${diffDays(today(), c.due)}일 뒤) · 연속 정답 ${c.streak}/${need(it)}`;
+}
+
+async function commit() {
+  if (!ses || ses.phase !== 'result' || ses.saved) return;
+  ses.saved = true;
+  const it = cur();
+  grade(it, { ...ses.r, retry: ses.mode === 'retry' });
+  ses.r.ok ? ses.ok++ : ses.bad++;
+  await putItem(it);
+}
+
+async function renderReview() {
+  const p = $('p-review');
+  if (!ses) { show('today'); return; }
+  if (ses.i >= ses.ids.length) {
+    p.innerHTML = `<div class="hello"><b>${ses.mode === 'retry' ? '다시 풀기 끝!' : '오늘 복습 끝!'}</b><p>맞힘 ${ses.ok}개 · 틀림 ${ses.bad}개</p>${ses.bad ? `<p>틀린 문제는 내일 다시 나오고, 오늘 '다시 풀기'에도 넣어 뒀어요.</p>` : ''}<button class="go" id="endBtn">처음으로</button></div>`;
+    $('endBtn').onclick = () => { ses = null; show('today'); };
+    return;
+  }
+  const it = cur(), r = ses.r;
+  let h = `<div class="rtop"><button class="ghost" id="quit">그만하기</button><span>${ses.i + 1} / ${ses.ids.length}</span></div>`;
+  h += `<div class="prog"><i style="width:${(ses.i / ses.ids.length) * 100}%"></i></div>`;
+  h += `<div class="rmeta"><b>${esc(it.subject)}${it.unit ? ' · ' + esc(it.unit) : ''}</b><span>난이도 ${it.level} · 연속 정답 ${it.streak}/${need(it)}${ses.mode === 'retry' ? ' · 다시 풀기' : ''}</span></div>`;
+  h += `<img class="photo" data-ph="${it.id}-q" alt="문제 사진">`;
+  if (ses.phase === 'ask') {
+    if (it.answer) h += `<form class="ans" id="ansForm"><input id="ans" placeholder="내 답" autocomplete="off" enterkeyhint="done"><button class="go">채점하기</button></form>`;
+    else h += `<p class="hint">정답을 등록하지 않은 문제예요. 풀고 나서 맞았는지 골라 주세요.</p>${it.sol ? `<details class="sol"><summary>해설 보기</summary><img data-ph="${it.id}-s" alt="해설 사진"></details>` : ''}<div class="two"><button class="go ok" data-self="1">맞힘</button><button class="go bad" data-self="0">틀림</button></div>`;
+  } else {
+    if (r.ok) h += `<div class="res ok"><b>정답!</b><span>${esc(planText(it, ses.mode === 'retry'))}</span></div>`;
+    else h += `<div class="res bad"><b>틀렸어요</b>${r.auto ? `<span>내 답 ${esc(r.given)} · 정답 ${esc(it.answer)}</span>` : ''}</div>`;
+    if (!r.ok && r.auto) h += '<button class="link" id="actually">내 답도 맞는 답이에요 (정답으로 바꾸기)</button>';
+    if (it.sol) h += `<details class="sol"${r.ok ? '' : ' open'}><summary>해설 보기</summary><img data-ph="${it.id}-s" alt="해설 사진"></details>`;
+    if (!r.ok) h += `<div class="field"><span>왜 틀렸나요?</span><div class="chips red" id="rvReasons">${REASONS.map(x => `<button type="button" aria-pressed="${r.reason === x}">${x}</button>`).join('')}</div><textarea id="rvMemo" placeholder="메모 (선택)">${esc(r.memo)}</textarea></div>`;
+    h += `<button class="go" id="nextQ">${ses.i + 1 < ses.ids.length ? '다음 문제' : '끝내기'}</button>`;
+  }
+  p.innerHTML = h;
+  fillImgs(p);
+
+  $('quit').onclick = async () => { await commit(); ses = null; show('today'); };
+  if (ses.phase === 'ask') {
+    if ($('ansForm')) {
+      $('ansForm').onsubmit = e => {
+        e.preventDefault();
+        const given = $('ans').value.trim();
+        if (!given) { toast('답을 입력해 주세요'); return; }
+        toResult({ ok: same(given, it.answer), given, auto: true });
+      };
+    }
+    p.querySelectorAll('[data-self]').forEach(b => b.onclick = () => toResult({ ok: b.dataset.self === '1', auto: false }));
+  } else {
+    if ($('actually')) $('actually').onclick = () => { r.ok = true; renderReview(); };
+    if ($('rvReasons')) {
+      $('rvReasons').onclick = e => {
+        const b = e.target.closest('button'); if (!b) return;
+        r.reason = r.reason === b.textContent ? '' : b.textContent;
+        $('rvReasons').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x.textContent === r.reason));
+      };
+      $('rvMemo').oninput = e => { r.memo = e.target.value.trim(); };
+    }
+    $('nextQ').onclick = async () => { await commit(); ses.i++; ses.phase = 'ask'; ses.saved = false; ses.r = null; renderReview(); scrollTo({ top: 0 }); };
+  }
+}
+function toResult(r) { ses.r = { reason: '', memo: '', ...r }; ses.phase = 'result'; renderReview(); }
+
+/* ---------- 등록 · 수정 ---------- */
+const form = { editing: null, subject: '', level: '중', reason: '', q: null, t: null, s: null };
+
+function resetForm() {
+  Object.assign(form, { editing: null, subject: '', level: '중', reason: '', q: null, t: null, s: null });
+  $('addForm').reset();
+  setShot('qShot', '', '눌러서 사진 찍기 · 고르기');
+  setShot('sShot', '', '해설·풀이 사진 추가');
+  $('addBtn').textContent = '등록하기';
+  $('cancelEdit').hidden = true;
+}
+function setShot(id, src, text) {
+  const el = $(id), input = el.querySelector('input');
+  el.classList.toggle('has', !!src);
+  el.innerHTML = src ? `<img src="${src}" alt="">` : `<span>${text}</span>`;
+  el.appendChild(input);
+}
+
+function renderAdd() {
+  $('subjChips').innerHTML = subjects().map(s => `<button type="button" aria-pressed="${form.subject === s}">${esc(s)}</button>`).join('') + '<button type="button" class="add" data-new>+ 과목 추가</button>';
+  $('addReasons').innerHTML = REASONS.map(x => `<button type="button" aria-pressed="${form.reason === x}">${x}</button>`).join('');
+  document.querySelectorAll('#levelSeg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.l === form.level));
+  const n = NEED[form.level] + (form.subject === '수학' ? 1 : 0);
+  $('levelHint').textContent = `복습에서 연속 ${n}번 맞히면 끝나요.` + (form.subject === '수학' ? ' (수학은 1번 더)' : '');
+  const units = [...new Set(items.filter(i => i.subject === form.subject && i.unit).map(i => i.unit))];
+  $('units').innerHTML = units.map(u => `<option value="${esc(u)}">`).join('');
+}
+
+$('subjChips').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.hasAttribute('data-new')) {
+    const name = (prompt('추가할 과목 이름') || '').trim().slice(0, 12);
+    if (!name) return;
+    addSubject(name);
+    form.subject = name;
+  } else form.subject = b.textContent;
+  renderAdd();
+};
+$('levelSeg').onclick = e => { const b = e.target.closest('button'); if (b) { form.level = b.dataset.l; renderAdd(); } };
+$('addReasons').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  form.reason = form.reason === b.textContent ? '' : b.textContent;
+  renderAdd();
+};
+
+$('qFile').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    form.q = await shrink(f, 1600);
+    form.t = await shrink(f, 400);
+    setShot('qShot', URL.createObjectURL(form.q));
+  } catch (err) { toast(err.message); }
+  e.target.value = '';
+};
+$('sFile').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try { form.s = await shrink(f, 1600); setShot('sShot', URL.createObjectURL(form.s)); } catch (err) { toast(err.message); }
+  e.target.value = '';
+};
+
+let persisted = false;
+$('addForm').onsubmit = async e => {
+  e.preventDefault();
+  const old = form.editing && items.find(i => i.id === form.editing);
+  if (!old && !form.q) { toast('문제 사진을 넣어 주세요'); return; }
+  if (!form.subject) { toast('과목을 골라 주세요'); return; }
+  $('addBtn').disabled = true;
+  try {
+    const t = today();
+    const it = old || { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), created: t, due: addDays(t, STEPS[0]), streak: 0, done: false, retryDay: t, history: [{ day: t, ok: false, reg: true }] };
+    Object.assign(it, { subject: form.subject, unit: $('unit').value.trim(), level: form.level, answer: $('answer').value.trim() });
+    const reg = it.history.find(h => h.reg);
+    if (reg) Object.assign(reg, { reason: form.reason, memo: $('addMemo').value.trim() });
+    if (form.q) { await putPhoto(it.id + '-q', form.q); await putPhoto(it.id + '-t', form.t); forgetUrl(it.id + '-q'); forgetUrl(it.id + '-t'); }
+    if (form.s) { await putPhoto(it.id + '-s', form.s); forgetUrl(it.id + '-s'); it.sol = true; }
+    it.sol = !!it.sol;
+    await putItem(it);
+    if (!old) items.push(it);
+    // 사파리가 저장 공간이 부족할 때 사진을 지우지 않도록 요청
+    if (!persisted && navigator.storage && navigator.storage.persist) { persisted = true; navigator.storage.persist().catch(() => {}); }
+    const keepSubject = form.subject, keepLevel = form.level;
+    resetForm();
+    if (old) { toast('수정했어요'); show('list'); }
+    else {
+      form.subject = keepSubject; form.level = keepLevel;   // 연달아 등록하기 편하게
+      toast('등록했어요 · 오늘 다시 풀기에 넣었어요');
+      renderAdd();
+      scrollTo({ top: 0 });
+    }
+  } catch (err) {
+    toast('저장하지 못했어요: ' + err.message);
+  } finally { $('addBtn').disabled = false; }
+};
+$('cancelEdit').onclick = () => { resetForm(); show('list'); };
+
+async function startEdit(id) {
+  const it = items.find(i => i.id === id);
+  resetForm();
+  const reg = it.history.find(h => h.reg) || {};
+  Object.assign(form, { editing: id, subject: it.subject, level: it.level, reason: reg.reason || '' });
+  $('unit').value = it.unit; $('answer').value = it.answer; $('addMemo').value = reg.memo || '';
+  setShot('qShot', await photoUrl(id + '-q'));
+  if (it.sol) setShot('sShot', await photoUrl(id + '-s'));
+  $('addBtn').textContent = '수정하기';
+  $('cancelEdit').hidden = false;
+  show('add');
+}
+
+/* ---------- 목록 ---------- */
+const lf = { subject: '전체', done: false };
+function renderList() {
+  const p = $('p-list');
+  const subs = ['전체', ...new Set(items.map(i => i.subject))];
+  if (!subs.includes(lf.subject)) lf.subject = '전체';
+  const list = items.filter(i => i.done === lf.done && (lf.subject === '전체' || i.subject === lf.subject))
+    .sort(lf.done ? (a, b) => (b.doneDay || '').localeCompare(a.doneDay || '') : byDue);
+  let h = `<div class="filters"><div class="seg2" id="doneSeg"><button aria-pressed="${!lf.done}" data-d="0">진행 중 ${items.filter(i => !i.done).length}</button><button aria-pressed="${lf.done}" data-d="1">완료 ${items.filter(i => i.done).length}</button></div>`;
+  h += `<div class="chips" id="subjFilter">${subs.map(s => `<button aria-pressed="${lf.subject === s}">${esc(s)}</button>`).join('')}</div></div>`;
+  if (!list.length) h += `<p class="empty">${lf.done ? '아직 완료한 문제가 없어요.' : '진행 중인 문제가 없어요.'}</p>`;
+  else h += '<div class="grid">' + list.map(it => {
+    const st = it.done ? `<small class="done">${fmtShort(it.doneDay)} 완료</small>`
+      : it.due <= today() ? `<small class="late">오늘 복습${it.due < today() ? ` (${diffDays(it.due, today())}일 밀림)` : ''}</small>`
+      : `<small>다음 ${fmtShort(it.due)} · ${it.streak}/${need(it)}</small>`;
+    return `<button class="card" data-open="${it.id}"><img data-ph="${it.id}-t" alt=""><b>${esc(it.subject)}${it.unit ? ' · ' + esc(it.unit) : ''}</b>${st}</button>`;
+  }).join('') + '</div>';
+  h += `<div class="box"><b>백업</b><p class="hint">사진과 기록은 이 폰 안에만 저장돼요. 폰을 바꾸거나 사파리 기록을 지우면 사라지니 가끔 백업 파일을 저장해 두세요. 홈 화면 앱과 사파리는 저장 공간이 따로라서, 쓰던 곳에서 백업해 다른 곳에서 불러오면 옮길 수 있어요.</p><div class="two"><button class="go line" id="exportBtn">백업 저장</button><button class="go line" id="importBtn">불러오기</button></div></div>`;
+  p.innerHTML = h;
+  fillImgs(p);
+  $('doneSeg').onclick = e => { const b = e.target.closest('button'); if (b) { lf.done = b.dataset.d === '1'; renderList(); } };
+  $('subjFilter').onclick = e => { const b = e.target.closest('button'); if (b) { lf.subject = b.textContent; renderList(); } };
+  $('exportBtn').onclick = exportBackup;
+  $('importBtn').onclick = () => $('importFile').click();
+}
+
+/* ---------- 자세히 ---------- */
+async function openDetail(id) {
+  const it = items.find(i => i.id === id); if (!it) return;
+  const d = $('detail');
+  const state = it.done ? `${fmt(it.doneDay)} 완료` : it.due <= today() ? '오늘 복습' : `다음 복습 ${fmt(it.due)}`;
+  let h = `<div class="sheet"><div class="top"><h2>${esc(it.subject)}${it.unit ? ' · ' + esc(it.unit) : ''}</h2><button class="ghost" id="dClose">닫기</button></div>`;
+  h += `<img class="photo" data-ph="${id}-q" alt="문제 사진">`;
+  h += `<dl class="info"><dt>상태</dt><dd>${state}</dd><dt>연속 정답</dt><dd>${it.streak} / ${need(it)}</dd><dt>난이도</dt><dd>${it.level}</dd><dt>정답</dt><dd>${esc(it.answer || '등록 안 함')}</dd><dt>등록</dt><dd>${fmt(it.created)}</dd></dl>`;
+  if (it.sol) h += `<details class="sol"><summary>해설 보기</summary><img data-ph="${id}-s" alt="해설 사진"></details>`;
+  h += '<span class="label">기록</span><ol class="hist">' + it.history.slice().reverse().map(x => {
+    const kind = x.reg ? '등록' : x.retry ? '다시 풀기' : '복습';
+    const why = [x.reason, x.memo].filter(Boolean).join(' — ');
+    return `<li class="${x.ok ? 'ok' : 'bad'}"><b>${fmtShort(x.day)} ${kind} · ${x.reg ? '틀린 문제' : x.ok ? '맞힘' : '틀림'}</b>${x.given ? `<span>내 답: ${esc(x.given)}</span>` : ''}${why ? `<span>${esc(why)}</span>` : ''}</li>`;
+  }).join('') + '</ol>';
+  h += `<div class="two"><button class="go line" id="dEdit">수정</button>${it.done ? '<button class="go line" id="dRestart">다시 복습하기</button>' : '<button class="del" id="dDel">삭제</button>'}</div>`;
+  if (it.done) h += '<button class="del" id="dDel">삭제</button>';
+  d.innerHTML = h + '</div>';
+  fillImgs(d);
+  $('dClose').onclick = () => d.close();
+  $('dEdit').onclick = () => { d.close(); startEdit(id); };
+  if ($('dRestart')) $('dRestart').onclick = async () => {
+    Object.assign(it, { done: false, doneDay: null, streak: 0, due: addDays(today(), STEPS[0]) });
+    await putItem(it); d.close(); toast('내일부터 다시 복습해요'); show(page);
+  };
+  let armed = 0;
+  $('dDel').onclick = async () => {
+    if (Date.now() - armed > 3000) { armed = Date.now(); $('dDel').classList.add('arm'); $('dDel').textContent = '한 번 더 누르면 삭제'; return; }
+    await tx('items', 'readwrite', s => s.delete(id));
+    for (const k of ['-q', '-t', '-s']) { await delPhoto(id + k); forgetUrl(id + k); }
+    items = items.filter(i => i.id !== id);
+    d.close(); toast('삭제했어요'); show(page);
+  };
+  d.showModal();
+  d.scrollTop = 0;
+}
+
+/* ---------- 통계 ---------- */
+function bars(rows, red) {
+  const max = Math.max(1, ...rows.map(r => r.v));
+  return `<ul class="bars${red ? ' red' : ''}">` + rows.map(r => `<li><span>${esc(r.k)}</span><span class="bar"><i style="width:${(r.v / max) * 100}%"></i></span><small>${r.t}</small></li>`).join('') + '</ul>';
+}
+function renderStats() {
+  const p = $('p-stats');
+  if (!items.length) { p.innerHTML = '<p class="empty">문제를 등록하면 과목별 통계가 보여요.</p>'; return; }
+  const tries = items.flatMap(i => i.history.filter(h => !h.reg).map(h => ({ ...h, subject: i.subject })));
+  const rate = list => list.length ? Math.round(list.filter(h => h.ok).length / list.length * 100) + '%' : '–';
+  let h = `<div class="stats"><div><small>전체</small><b>${items.length}</b></div><div><small>진행 중</small><b>${items.filter(i => !i.done).length}</b></div><div><small>완료</small><b>${items.filter(i => i.done).length}</b></div></div>`;
+  h += `<p class="hint">지금까지 ${tries.length}번 다시 풀었고, 정답률은 ${rate(tries)}예요.</p>`;
+
+  const subs = [...new Set(items.map(i => i.subject))];
+  h += '<div class="field"><h2 class="sec">과목별</h2>' + bars(subs.map(s => {
+    const its = items.filter(i => i.subject === s);
+    return { k: s, v: its.length, t: `${its.length}개 · 완료 ${its.filter(i => i.done).length} · ${rate(tries.filter(x => x.subject === s))}` };
+  }).sort((a, b) => b.v - a.v)) + '<p class="hint">막대는 문제 수, 끝의 %는 복습 정답률이에요.</p></div>';
+
+  const why = {};
+  for (const i of items) for (const x of i.history) if (!x.ok && x.reason) why[x.reason] = (why[x.reason] || 0) + 1;
+  const whyRows = Object.entries(why).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ k, v, t: v + '번' }));
+  h += '<div class="field"><h2 class="sec">틀린 이유</h2>' + (whyRows.length ? bars(whyRows, true) : '<p class="empty">틀린 이유를 고르면 여기에 모여요.</p>') + '</div>';
+
+  const units = {};
+  for (const i of items) {
+    if (!i.unit) continue;
+    const k = i.subject + ' · ' + i.unit;
+    units[k] = (units[k] || 0) + 1 + i.history.filter(x => !x.reg && !x.ok).length;
+  }
+  const unitRows = Object.entries(units).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([k, v]) => ({ k, v, t: v + '번' }));
+  if (unitRows.length) h += '<div class="field"><h2 class="sec">많이 틀린 단원</h2>' + bars(unitRows, true) + '<p class="hint">등록할 때와 복습에서 틀린 횟수를 합쳤어요.</p></div>';
+  p.innerHTML = h;
+}
+
+/* ---------- 백업 ---------- */
+const toDataUrl = blob => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(blob); });
+
+async function exportBackup() {
+  try {
+    toast('백업 파일 만드는 중…');
+    const photos = await tx('photos', 'readonly', s => s.getAll());
+    const ph = [];
+    for (const x of photos) ph.push({ id: x.id, data: await toDataUrl(x.blob) });
+    const blob = new Blob([JSON.stringify({ app: 'review', version: 1, exported: new Date().toISOString(), subjects: customSubjects(), items, photos: ph })], { type: 'application/json' });
+    const name = `오답백업-${today()}.json`;
+    const file = new File([blob], name, { type: 'application/json' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file] }); return; }
+      catch (e) { if (e.name === 'AbortError') return; }   // 공유 창이 막히면 아래 다운로드로
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    toast('백업 파일을 저장했어요');
+  } catch (e) { toast('백업하지 못했어요: ' + e.message); }
+}
+
+$('importFile').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const data = JSON.parse(await f.text());
+    if (data.app !== 'review' || !Array.isArray(data.items)) throw new Error('오답 복습 백업 파일이 아니에요');
+    if (!confirm(`백업에 있는 문제 ${data.items.length}개를 불러올까요? 이미 있는 문제는 백업 내용으로 바뀌어요.`)) return;
+    for (const x of data.photos || []) { await putPhoto(x.id, await (await fetch(x.data)).blob()); forgetUrl(x.id); }
+    for (const it of data.items) await putItem(it);
+    for (const s of data.subjects || []) addSubject(s);
+    items = await tx('items', 'readonly', s => s.getAll());
+    toast(`${data.items.length}개를 불러왔어요`);
+    show(page);
+  } catch (err) { toast('불러오지 못했어요: ' + err.message); }
+  finally { e.target.value = ''; }
+};
+
+let toastT;
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg; t.hidden = false;
+  clearTimeout(toastT);
+  toastT = setTimeout(() => t.hidden = true, 2400);
+}
+
+/* ---------- 시작 ---------- */
+let shownDay = today();
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && today() !== shownDay) { shownDay = today(); if (page !== 'review' && page !== 'add') show(page); }
+});
+(async () => {
+  try { items = await tx('items', 'readonly', s => s.getAll()); }
+  catch { $('p-today').innerHTML = '<p class="empty">이 브라우저에서는 저장 공간을 쓸 수 없어요. 사파리의 개인정보 보호 브라우징을 끄고 다시 열어 주세요.</p>'; return; }
+  show('today');
+})();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
