@@ -1,0 +1,15 @@
+{
+  "name": "오답 복습",
+  "short_name": "오답복습",
+  "description": "틀린 문제를 1·3·7·14일 간격으로 다시 풀기",
+  "lang": "ko",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
