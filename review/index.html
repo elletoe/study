@@ -171,6 +171,54 @@ dialog::backdrop{background:rgba(0,0,0,.35)}
 .del{height:44px;border-radius:12px;font-size:14px;font-weight:700;border:1px solid var(--bad);background:var(--bg);color:var(--bad)}
 .del.arm{background:var(--bad);color:#fff}
 
+/* 사진 다듬기 */
+.editor{position:fixed;inset:0;z-index:30;background:#111;color:#fff;display:flex;flex-direction:column;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
+.etop{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px}
+.etop b{font-size:13px;font-weight:700;opacity:.8;text-align:center;line-height:1.4}
+.etop button{height:36px;padding:0 14px;border:none;border-radius:10px;background:#2a2a2a;color:#fff;font-weight:700;flex:none}
+.etop #edDone{background:#fff;color:#111}
+.estage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+.estage canvas{touch-action:none;display:block}
+.ebar{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:10px 12px 14px}
+.ebar button{height:44px;border:1px solid #444;border-radius:12px;background:transparent;color:#fff;font-size:14px;font-weight:700}
+.ebar button[aria-pressed="true"]{background:#fff;color:#111;border-color:#fff}
+
+/* 크게 보기 */
+#viewer{width:100%;height:100%;max-width:none;max-height:none;margin:0;padding:0;border:none;border-radius:0;background:#000;overflow:hidden;touch-action:none}
+#viewer::backdrop{background:#000}
+#viewer img{position:absolute;left:0;top:0;transform-origin:0 0;user-select:none;-webkit-user-select:none;-webkit-user-drag:none;max-width:none}
+.vclose{position:absolute;right:12px;top:calc(12px + env(safe-area-inset-top,0px));height:40px;padding:0 16px;border:none;border-radius:12px;background:rgba(255,255,255,.92);color:#111;font-weight:700;z-index:1}
+.vhint{position:absolute;left:0;right:0;bottom:calc(16px + env(safe-area-inset-bottom,0px));text-align:center;color:#999;font-size:12px;pointer-events:none}
+img.photo,.sol img{cursor:zoom-in}
+
+/* 시험 대비 · 목록 도구 */
+.exam{display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:16px;border:2px solid var(--ink)}
+.exam b{display:block;margin-top:4px;font-size:20px;font-weight:900}
+.exam p{margin:4px 0 0;font-size:13px;color:var(--sub);line-height:1.6}
+.search{width:100%;height:44px;padding:0 12px;border:1px solid var(--line);border-radius:12px;background:var(--bg);font-size:16px}
+.search:focus{outline:2px solid var(--ink);outline-offset:-1px}
+.check{display:flex;align-items:center;gap:8px;font-size:14px}
+.check input{width:20px;height:20px;margin:0;accent-color:var(--ink)}
+.shotlinks{display:flex;gap:4px;justify-content:center}
+
+/* PDF 오답노트 (인쇄할 때만 보여요) */
+#print{display:none}
+@media print{
+  @page{size:A4;margin:14mm}
+  html,body{padding:0;background:#fff}
+  body>*:not(#print){display:none!important}
+  #print{display:block;color:#000;font-family:var(--font)}
+  .ptitle{margin:0 0 1mm;font-size:14pt;font-weight:900}
+  .psub{margin:0 0 3mm;font-size:9pt;color:#555}
+  .pq{break-inside:avoid;page-break-inside:avoid;margin:0 0 5mm;padding-bottom:4mm;border-bottom:0.3mm solid #ccc}
+  .phead{display:flex;justify-content:space-between;font-size:10pt;margin-bottom:2mm}
+  .phead span{color:#555}
+  .pq img{display:block;max-width:100%;max-height:80mm;margin:0 auto}
+  .pspace{height:28mm;margin-top:3mm;border:0.3mm dashed #bbb;border-radius:2mm}
+  .pans{break-before:page;page-break-before:always}
+  .pans ol{columns:2;font-size:11pt;line-height:1.9;margin:0;padding-left:8mm}
+}
+
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:12px;font-size:14px;font-weight:500;max-width:calc(100% - 32px);text-align:center;z-index:20}
 </style>
 </head>
@@ -192,10 +240,11 @@ dialog::backdrop{background:rgba(0,0,0,.35)}
 
   <section class="page" id="p-add" hidden>
     <form class="page" id="addForm" autocomplete="off">
-      <label class="field">
+      <div class="field">
         <span>문제 사진</span>
-        <div class="shot" id="qShot"><span>눌러서 사진 찍기 · 고르기</span><input type="file" accept="image/*" id="qFile"></div>
-      </label>
+        <label class="shot" id="qShot"><span>눌러서 사진 찍기 · 고르기</span><input type="file" accept="image/*" id="qFile"></label>
+        <div class="shotlinks"><button class="link" type="button" id="qRedo" hidden>자르기 · 다듬기</button></div>
+      </div>
 
       <div class="field">
         <span>과목</span>
@@ -220,14 +269,15 @@ dialog::backdrop{background:rgba(0,0,0,.35)}
 
       <label class="field">
         <span>정답</span>
-        <input id="answer" placeholder="예: 3, -2, 1/2, ④">
-        <p class="hint">복습할 때 답을 넣으면 바로 채점해요. 비워 두면 맞았는지 직접 골라요.</p>
+        <input id="answer" placeholder="예: 3, -2, 1/2, ④" autocapitalize="off" autocorrect="off" spellcheck="false">
+        <p class="hint">복습할 때 답을 넣으면 바로 채점해요. 답이 여러 개면 '2 또는 3'처럼 적어요. 비워 두면 맞았는지 직접 골라요.</p>
       </label>
 
-      <label class="field">
+      <div class="field">
         <span>해설 사진 (선택)</span>
-        <div class="shot small" id="sShot"><span>해설·풀이 사진 추가</span><input type="file" accept="image/*" id="sFile"></div>
-      </label>
+        <label class="shot small" id="sShot"><span>해설·풀이 사진 추가</span><input type="file" accept="image/*" id="sFile"></label>
+        <div class="shotlinks"><button class="link" type="button" id="sRedo" hidden>자르기 · 다듬기</button><button class="link" type="button" id="sDel" hidden>해설 사진 지우기</button></div>
+      </div>
 
       <div class="field">
         <span>왜 틀렸나요?</span>
@@ -246,6 +296,23 @@ dialog::backdrop{background:rgba(0,0,0,.35)}
 </div>
 
 <dialog id="detail"></dialog>
+<dialog id="examDlg"></dialog>
+<dialog id="viewer"><img id="vImg" alt="크게 본 사진"><button class="vclose" id="vClose">닫기</button><p class="vhint">두 손가락으로 확대 · 두 번 탭하면 확대/원래대로</p></dialog>
+
+<div class="editor" id="editor" hidden>
+  <div class="etop">
+    <button id="edCancel">취소</button>
+    <b>네 모서리를 문제에 맞게 끌어 주세요<br>완료하면 반듯하게 펴져요</b>
+    <button id="edDone">완료</button>
+  </div>
+  <div class="estage" id="edStage"><canvas id="edCanvas"></canvas></div>
+  <div class="ebar">
+    <button id="edRotate">회전</button>
+    <button id="edFull">사진 전체</button>
+    <button id="edScan" aria-pressed="true">스캔 효과</button>
+  </div>
+</div>
+<div id="print"></div>
 <input type="file" id="importFile" accept=".json,application/json" hidden>
 <div class="toast" id="toast" hidden></div>
 
@@ -255,9 +322,15 @@ const NEED = { 하: 2, 중: 3, 상: 4 };       // 연속으로 이만큼 맞히�
 const BASE_SUBJECTS = ['국어', '수학', '영어', '과학', '사회', '한국사'];
 const REASONS = ['계산 실수', '개념 부족', '문제 잘못 읽음', '시간 부족', '찍음', '기타'];
 const DOW = '일월화수목금토';
-const LS_SUBJ = 'review-subjects';
+const LS_SUBJ = 'review-subjects', LS_SET = 'review-settings';
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// 하루 최대 복습 개수(cap, 0이면 제한 없음)와 시험 대비(exam)
+let SET = loadSet();
+function loadSet() { try { return { cap: 0, exam: null, ...JSON.parse(localStorage.getItem(LS_SET) || '{}') }; } catch { return { cap: 0, exam: null }; } }
+function saveSet() { try { localStorage.setItem(LS_SET, JSON.stringify(SET)); } catch {} }
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 
 /* ---------- 날짜 (YYYY-MM-DD, 기기 시간 기준) ---------- */
 const pad = n => String(n).padStart(2, '0');
@@ -311,19 +384,256 @@ async function fillImgs(root) {
   for (const img of root.querySelectorAll('img[data-ph]')) img.src = await photoUrl(img.dataset.ph);
 }
 
-// 사진은 긴 변 1600px JPEG로 줄여서 저장 (용량·백업 크기 줄이기)
-async function shrink(file, max) {
-  const url = URL.createObjectURL(file);
+/* ---------- 사진 다듬기: 자르기 · 반듯하게 펴기 · 스캔 효과 ---------- */
+// 고른 사진을 긴 변 2400px 캔버스로 (다듬는 동안 쓰는 원본)
+async function loadCanvas(blob) {
+  const url = URL.createObjectURL(blob);
   try {
     const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('사진을 열 수 없어요')); i.src = url; });
-    const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    const k = Math.min(1, 2400 / Math.max(img.naturalWidth, img.naturalHeight));
     const c = document.createElement('canvas');
     c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
     const g = c.getContext('2d');
     g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
     g.drawImage(img, 0, 0, c.width, c.height);
-    return await new Promise(res => c.toBlob(res, 'image/jpeg', 0.82));
+    return c;
   } finally { URL.revokeObjectURL(url); }
+}
+// 반씩 줄여 가며 축소 (한 번에 크게 줄이면 사파리에서 글씨가 깨져요)
+function scaleTo(src, w, h) {
+  let c = src;
+  while (c.width / 2 >= w && c.height / 2 >= h) {
+    const n = document.createElement('canvas');
+    n.width = Math.round(c.width / 2); n.height = Math.round(c.height / 2);
+    n.getContext('2d').drawImage(c, 0, 0, n.width, n.height);
+    c = n;
+  }
+  const out = document.createElement('canvas');
+  out.width = Math.max(1, Math.round(w)); out.height = Math.max(1, Math.round(h));
+  const g = out.getContext('2d');
+  g.imageSmoothingQuality = 'high';
+  g.drawImage(c, 0, 0, out.width, out.height);
+  return out;
+}
+const fitTo = (c, max) => { const k = Math.min(1, max / Math.max(c.width, c.height)); return k < 1 ? scaleTo(c, c.width * k, c.height * k) : c; };
+const toJpeg = c => new Promise(res => c.toBlob(res, 'image/jpeg', 0.82));
+
+// 네 모서리(왼위·오위·오아래·왼아래)로 정한 사각형을 직사각형으로 펴기
+function warp(src, c) {
+  const d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  let W = Math.max(d(c[0], c[1]), d(c[3], c[2])), H = Math.max(d(c[0], c[3]), d(c[1], c[2]));
+  const k = Math.min(1, 1600 / Math.max(W, H));
+  W = Math.max(1, Math.round(W * k)); H = Math.max(1, Math.round(H * k));
+  // 단위 정사각형 → 사각형 투영 변환
+  const [[x0, y0], [x1, y1], [x2, y2], [x3, y3]] = c;
+  const dx1 = x1 - x2, dx2 = x3 - x2, dx3 = x0 - x1 + x2 - x3, dy1 = y1 - y2, dy2 = y3 - y2, dy3 = y0 - y1 + y2 - y3;
+  let g7 = 0, h8 = 0;
+  if (Math.abs(dx3) > 1e-9 || Math.abs(dy3) > 1e-9) {
+    const den = dx1 * dy2 - dx2 * dy1;
+    g7 = (dx3 * dy2 - dx2 * dy3) / den; h8 = (dx1 * dy3 - dx3 * dy1) / den;
+  }
+  const a = x1 - x0 + g7 * x1, b = x3 - x0 + h8 * x3, cc = x0, dd = y1 - y0 + g7 * y1, e = y3 - y0 + h8 * y3, f = y0;
+  const sw = src.width, sh = src.height, sd = src.getContext('2d').getImageData(0, 0, sw, sh).data;
+  const out = document.createElement('canvas');
+  out.width = W; out.height = H;
+  const og = out.getContext('2d'), od = og.createImageData(W, H), o = od.data;
+  for (let y = 0; y < H; y++) {
+    const v = (y + 0.5) / H;
+    for (let x = 0; x < W; x++) {
+      const u = (x + 0.5) / W, w = g7 * u + h8 * v + 1;
+      const sx = (a * u + b * v + cc) / w - 0.5, sy = (dd * u + e * v + f) / w - 0.5;
+      let ix = Math.floor(sx), iy = Math.floor(sy);
+      const fx = sx - ix, fy = sy - iy;
+      ix = clamp(ix, 0, sw - 1); iy = clamp(iy, 0, sh - 1);
+      const jx = Math.min(ix + 1, sw - 1), jy = Math.min(iy + 1, sh - 1);
+      const p00 = (iy * sw + ix) * 4, p10 = (iy * sw + jx) * 4, p01 = (jy * sw + ix) * 4, p11 = (jy * sw + jx) * 4, q = (y * W + x) * 4;
+      for (let ch = 0; ch < 3; ch++) {
+        const t = sd[p00 + ch] + (sd[p10 + ch] - sd[p00 + ch]) * fx, m = sd[p01 + ch] + (sd[p11 + ch] - sd[p01 + ch]) * fx;
+        o[q + ch] = t + (m - t) * fy;
+      }
+      o[q + 3] = 255;
+    }
+  }
+  og.putImageData(od, 0, 0);
+  return out;
+}
+
+// 스캔 효과: 그림자·누런 종이를 하얗게, 글씨는 진하게 (흑백)
+function scanFilter(cv) {
+  const W = cv.width, H = cv.height, g = cv.getContext('2d'), img = g.getImageData(0, 0, W, H), d = img.data;
+  // 배경 밝기 = 작게 줄인 사진에서 주변 가장 밝은 값 (글씨는 빠지고 종이만 남아요)
+  const sw = Math.max(1, Math.round(W / 24)), sh = Math.max(1, Math.round(H / 24));
+  const sm = scaleTo(cv, sw, sh), sg = sm.getContext('2d'), s = sg.getImageData(0, 0, sw, sh), sd = s.data;
+  const lum = new Float32Array(sw * sh);
+  for (let i = 0; i < sw * sh; i++) lum[i] = 0.299 * sd[i * 4] + 0.587 * sd[i * 4 + 1] + 0.114 * sd[i * 4 + 2];
+  const R = 2;
+  for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) {
+    let m = 0;
+    for (let yy = Math.max(0, y - R); yy <= Math.min(sh - 1, y + R); yy++)
+      for (let xx = Math.max(0, x - R); xx <= Math.min(sw - 1, x + R); xx++) m = Math.max(m, lum[yy * sw + xx]);
+    const i = (y * sw + x) * 4;
+    sd[i] = sd[i + 1] = sd[i + 2] = m;
+  }
+  sg.putImageData(s, 0, 0);
+  const bg = document.createElement('canvas');
+  bg.width = W; bg.height = H;
+  const bgg = bg.getContext('2d');
+  bgg.imageSmoothingQuality = 'high';
+  bgg.drawImage(sm, 0, 0, W, H);
+  const bd = bgg.getImageData(0, 0, W, H).data;
+  for (let i = 0; i < d.length; i += 4) {
+    const l = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    const v = clamp(((l / Math.max(bd[i], 1)) * 255 - 70) * 255 / 155, 0, 255);
+    d[i] = d[i + 1] = d[i + 2] = v;
+  }
+  g.putImageData(img, 0, 0);
+}
+
+const ed = { st: null, resolve: null, k: 1, drag: -1 };
+const fullCorners = (c, m) => { const x = c.width * m, y = c.height * m; return [[x, y], [c.width - x, y], [c.width - x, c.height - y], [x, c.height - y]]; };
+// st = { src: 캔버스, corners, scan }. 완료하면 다듬은 캔버스, 취소하면 null
+function openEditor(st) {
+  return new Promise(res => {
+    if (!st.corners) st.corners = fullCorners(st.src, 0.03);
+    ed.st = st; ed.resolve = res;
+    $('edScan').setAttribute('aria-pressed', st.scan);
+    $('edDone').textContent = '완료';
+    $('editor').hidden = false;
+    document.body.style.overflow = 'hidden';
+    requestAnimationFrame(drawEditor);
+  });
+}
+function closeEditor(out) {
+  $('editor').hidden = true;
+  document.body.style.overflow = '';
+  const r = ed.resolve; ed.resolve = null;
+  if (r) r(out);
+}
+function drawEditor() {
+  if ($('editor').hidden) return;
+  const cv = $('edCanvas'), src = ed.st.src, r = $('edStage').getBoundingClientRect();
+  const k = Math.min((r.width - 32) / src.width, (r.height - 32) / src.height), dpr = devicePixelRatio || 1;
+  const w = Math.round(src.width * k), h = Math.round(src.height * k);
+  ed.k = k;
+  if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) {
+    cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+    cv.style.width = w + 'px'; cv.style.height = h + 'px';
+  }
+  const g = cv.getContext('2d'), c = ed.st.corners;
+  g.setTransform(dpr * k, 0, 0, dpr * k, 0, 0);
+  g.drawImage(src, 0, 0);
+  g.fillStyle = 'rgba(0,0,0,.55)';
+  g.beginPath(); g.rect(0, 0, src.width, src.height);
+  g.moveTo(...c[0]); g.lineTo(...c[1]); g.lineTo(...c[2]); g.lineTo(...c[3]); g.closePath();
+  g.fill('evenodd');
+  g.strokeStyle = '#fff'; g.lineWidth = 2 / k;
+  g.beginPath(); g.moveTo(...c[0]); g.lineTo(...c[1]); g.lineTo(...c[2]); g.lineTo(...c[3]); g.closePath(); g.stroke();
+  for (const [x, y] of c) {
+    g.beginPath(); g.arc(x, y, 12 / k, 0, Math.PI * 2);
+    g.fillStyle = '#fff'; g.fill();
+    g.lineWidth = 3 / k; g.strokeStyle = '#111'; g.stroke();
+  }
+}
+{
+  const cv = $('edCanvas');
+  const at = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / ed.k, (e.clientY - r.top) / ed.k]; };
+  cv.onpointerdown = e => {
+    const p = at(e);
+    let best = -1, bd = Infinity;
+    ed.st.corners.forEach((q, i) => { const dd = Math.hypot(q[0] - p[0], q[1] - p[1]); if (dd < bd) { bd = dd; best = i; } });
+    if (bd * ed.k < 48) { ed.drag = best; cv.setPointerCapture(e.pointerId); }
+  };
+  cv.onpointermove = e => {
+    if (ed.drag < 0) return;
+    const p = at(e), s = ed.st.src;
+    ed.st.corners[ed.drag] = [clamp(p[0], 0, s.width), clamp(p[1], 0, s.height)];
+    drawEditor();
+  };
+  cv.onpointerup = cv.onpointercancel = () => { ed.drag = -1; };
+}
+$('edCancel').onclick = () => closeEditor(null);
+$('edFull').onclick = () => { ed.st.corners = fullCorners(ed.st.src, 0); drawEditor(); };
+$('edScan').onclick = () => { ed.st.scan = !ed.st.scan; $('edScan').setAttribute('aria-pressed', ed.st.scan); };
+$('edRotate').onclick = () => {
+  // 시계 방향 90°: (x, y) → (높이 - y, x), 새 왼위 모서리는 예전 왼아래
+  const s = ed.st.src, c = document.createElement('canvas');
+  c.width = s.height; c.height = s.width;
+  const g = c.getContext('2d');
+  g.translate(c.width, 0); g.rotate(Math.PI / 2); g.drawImage(s, 0, 0);
+  const cs = ed.st.corners.map(([x, y]) => [s.height - y, x]);
+  ed.st.corners = [cs[3], cs[0], cs[1], cs[2]];
+  ed.st.src = c;
+  drawEditor();
+};
+$('edDone').onclick = () => {
+  $('edDone').textContent = '처리 중…';
+  setTimeout(() => {
+    const out = warp(ed.st.src, ed.st.corners);
+    if (ed.st.scan) scanFilter(out);
+    closeEditor(out);
+  }, 30);
+};
+addEventListener('resize', () => requestAnimationFrame(drawEditor));
+
+/* ---------- 크게 보기 (두 손가락 확대, 두 번 탭) ---------- */
+const vw = { s: 1, x: 0, y: 0, pts: new Map(), g: null, tap: 0 };
+function openViewer(src) {
+  const img = $('vImg');
+  img.onload = fitViewer;
+  img.src = src;
+  $('viewer').showModal();
+  if (img.complete && img.naturalWidth) fitViewer();
+}
+function fitViewer() {
+  const img = $('vImg'), W = innerWidth, H = innerHeight;
+  const k = Math.min(W / img.naturalWidth, H / img.naturalHeight);
+  img.style.width = img.naturalWidth * k + 'px'; img.style.height = img.naturalHeight * k + 'px';
+  Object.assign(vw, { s: 1, x: (W - img.naturalWidth * k) / 2, y: (H - img.naturalHeight * k) / 2 });
+  applyViewer();
+}
+const applyViewer = () => { $('vImg').style.transform = `translate(${vw.x}px,${vw.y}px) scale(${vw.s})`; };
+function zoomAt(ns, mx, my, s0, x0, y0) {
+  ns = clamp(ns, 1, 6);
+  vw.x = mx - ns * (mx - x0) / s0; vw.y = my - ns * (my - y0) / s0; vw.s = ns;
+}
+function gestureStart() {
+  const p = [...vw.pts.values()];
+  vw.g = { s: vw.s, x: vw.x, y: vw.y, p };
+  if (p.length >= 2) { vw.g.d = Math.hypot(p[0][0] - p[1][0], p[0][1] - p[1][1]); vw.g.m = [(p[0][0] + p[1][0]) / 2, (p[0][1] + p[1][1]) / 2]; }
+}
+{
+  const d = $('viewer');
+  d.onpointerdown = e => {
+    if (e.target.closest('button')) return;
+    vw.pts.set(e.pointerId, [e.clientX, e.clientY]);
+    d.setPointerCapture(e.pointerId);
+    gestureStart();
+    if (vw.pts.size === 1) {
+      if (Date.now() - vw.tap < 300) {
+        if (vw.s > 1.2) fitViewer(); else { zoomAt(2.5, e.clientX, e.clientY, vw.s, vw.x, vw.y); applyViewer(); }
+        vw.tap = 0;
+        gestureStart();
+      } else vw.tap = Date.now();
+    }
+  };
+  d.onpointermove = e => {
+    if (!vw.pts.has(e.pointerId)) return;
+    vw.pts.set(e.pointerId, [e.clientX, e.clientY]);
+    const p = [...vw.pts.values()], g = vw.g;
+    if (p.length >= 2 && g.d) {
+      const dd = Math.hypot(p[0][0] - p[1][0], p[0][1] - p[1][1]), m = [(p[0][0] + p[1][0]) / 2, (p[0][1] + p[1][1]) / 2];
+      zoomAt(g.s * dd / g.d, g.m[0], g.m[1], g.s, g.x, g.y);
+      vw.x += m[0] - g.m[0]; vw.y += m[1] - g.m[1];
+    } else if (p.length === 1) {
+      vw.x = g.x + p[0][0] - g.p[0][0]; vw.y = g.y + p[0][1] - g.p[0][1];
+    }
+    applyViewer();
+  };
+  d.onpointerup = d.onpointercancel = e => {
+    vw.pts.delete(e.pointerId);
+    if (vw.s <= 1.01) fitViewer(); else gestureStart();
+  };
+  $('vClose').onclick = () => d.close();
 }
 
 /* ---------- 복습 규칙 ---------- */
@@ -334,10 +644,13 @@ const isRetry = it => !it.done && it.retryDay === today() && it.due > today();
 const byDue = (a, b) => a.due.localeCompare(b.due) || a.created.localeCompare(b.created);
 
 // 맞히면 다음 간격으로, 연속 정답이 채워지면 완료. 틀리면 처음(내일)부터 + 오늘 다시 풀기
+// 다시 풀기·시험 대비에서 맞히면 날짜는 그대로. 시험 대비에서 틀리면 완료한 문제도 다시 복습으로
 function grade(it, r) {
   const t = today();
-  it.history.push({ day: t, ok: r.ok, given: r.given || '', reason: r.reason || '', memo: r.memo || '', retry: !!r.retry });
-  if (r.retry) {
+  it.history.push({ day: t, ok: r.ok, given: r.given || '', reason: r.reason || '', memo: r.memo || '', retry: !!r.retry, ...(r.exam ? { exam: r.exam } : {}) });
+  if (r.exam) {
+    if (!r.ok) Object.assign(it, { done: false, doneDay: null, streak: 0, due: addDays(t, STEPS[0]), retryDay: t });
+  } else if (r.retry) {
     it.retryDay = r.ok ? null : t;
   } else if (r.ok) {
     it.streak++;
@@ -364,6 +677,34 @@ function same(a, b) {
   if (x === y) return true;
   const p = toNum(x), q = toNum(y);
   return p !== null && q !== null && Math.abs(p - q) < 1e-9;
+}
+// 정답이 '2 또는 3', '2 | 3'이면 어느 쪽이든 정답
+const answers = it => it.answer.split(/\s*(?:또는|\|)\s*/).filter(Boolean);
+const correct = (given, it) => answers(it).some(a => same(given, a));
+
+// 하루 최대 개수: 오늘 이미 복습한 만큼 빼고 남은 자리만큼만 (오래 밀린 것부터)
+function reviewedToday() {
+  const t = today();
+  return items.reduce((n, i) => n + i.history.filter(h => h.day === t && !h.reg && !h.retry && !h.exam).length, 0);
+}
+function todayQueue(all) {
+  const due = items.filter(isDue).sort(byDue);
+  return all || !SET.cap ? due : due.slice(0, Math.max(0, SET.cap - reviewedToday()));
+}
+
+// 시험 대비: 범위 문제를 시험 날까지 한 번씩 더 맞히기 (많이 틀린 것부터)
+const examOn = () => !!(SET.exam && SET.exam.date >= today());
+function inScope(e, it) {
+  if (!e.subjects.includes(it.subject)) return false;
+  const us = e.units.filter(u => u.startsWith(it.subject + '|'));
+  return !us.length || us.includes(it.subject + '|' + it.unit);
+}
+const wrongCount = it => it.history.filter(h => !h.ok).length;
+function examQueue() {
+  if (!examOn()) return [];
+  const id = SET.exam.id;
+  return items.filter(i => inScope(SET.exam, i) && !i.history.some(h => h.exam === id && h.ok))
+    .sort((a, b) => wrongCount(b) - wrongCount(a) || byDue(a, b));
 }
 
 /* ---------- 과목 ---------- */
@@ -403,12 +744,23 @@ function renderToday() {
     p.innerHTML = `<div class="hello"><b>첫 오답을 등록해 보세요</b><p>틀린 문제 사진을 올리면 1일 → 3일 → 7일 → 14일 간격으로 다시 풀 문제를 띄워 줘요. 연속으로 맞히면 끝나요 (하 2번 · 중 3번 · 상 4번, 수학은 1번씩 더).</p><button class="go" data-go="add">오답 등록하기</button></div>`;
     return;
   }
-  const due = items.filter(isDue).sort(byDue), retry = items.filter(isRetry);
-  const late = due.filter(i => i.due < t).length;
+  const all = items.filter(isDue).sort(byDue), due = todayQueue(), retry = items.filter(isRetry);
+  const late = due.filter(i => i.due < t).length, held = all.length - due.length;
   let h = `<div class="big"><span class="label">오늘 복습할 문제</span><div class="num">${due.length}<small>개</small></div>`;
   if (late) h += `<p class="sub">밀린 문제 ${late}개 포함</p>`;
-  h += due.length ? '<button class="go" data-start="due">복습 시작</button>' : '<p class="hint">오늘 복습은 다 했어요.</p>';
+  if (due.length) {
+    h += '<button class="go" data-start="due">복습 시작</button>';
+    if (held) h += `<p class="hint">하루 최대 ${SET.cap}개라서 ${held}개는 내일 먼저 나와요.</p>`;
+  } else if (held) {
+    h += `<p class="hint">오늘 정한 ${SET.cap}개를 다 했어요.</p><button class="go line" data-start="due" data-all="1">더 풀기 (${held}개 남음)</button>`;
+  } else h += '<p class="hint">오늘 복습은 다 했어요.</p>';
   h += '</div>';
+  if (examOn()) {
+    const q = examQueue(), n = diffDays(t, SET.exam.date), total = items.filter(i => inScope(SET.exam, i)).length;
+    h += `<div class="exam"><div><span class="label">시험 대비</span><b>${esc(SET.exam.name)} ${n ? 'D-' + n : 'D-day'}</b><p>범위 문제 ${total}개 중 ${q.length}개 남았어요. 시험 전에 한 번씩 다시 맞혀 보세요. 완료한 문제도 들어 있어요.</p></div>`;
+    h += q.length ? '<button class="go" data-start="exam">시험 대비 풀기</button>' : '<p class="hint">범위 문제를 다 맞혔어요!</p>';
+    h += '<button class="link" data-exam>시험 설정 바꾸기</button></div>';
+  }
   if (retry.length) h += `<div class="retry"><div><b>오늘 틀린 문제 다시 풀기 ${retry.length}개</b><p>답을 본 직후보다 조금 지나서 풀면 더 잘 기억나요. 여기서 맞혀도 복습 날짜는 그대로예요.</p></div><button class="go" data-start="retry">다시 풀기</button></div>`;
 
   h += '<div class="field"><span class="label">앞으로 7일</span><div class="week7">';
@@ -418,14 +770,18 @@ function renderToday() {
   }
   h += '</div></div>';
   if (due.length) h += `<div class="field"><span class="label">오늘 목록</span><div class="rows">${due.map(rowHTML).join('')}</div></div>`;
+  if (!examOn()) h += '<button class="link" data-exam>시험 대비 모드 켜기</button>';
   p.innerHTML = h;
 }
 
 document.addEventListener('click', e => {
+  const zi = e.target.closest('img.photo, .sol img');
+  if (zi && zi.src) { openViewer(zi.src); return; }
+  if (e.target.closest('[data-exam]')) { openExam(); return; }
   const go = e.target.closest('[data-go]');
   if (go) { show(go.dataset.go); return; }
   const st = e.target.closest('[data-start]');
-  if (st) { startSession(st.dataset.start); return; }
+  if (st) { startSession(st.dataset.start, st.dataset.all === '1'); return; }
   const op = e.target.closest('[data-open]');
   if (op) openDetail(op.dataset.open);
 });
@@ -433,16 +789,17 @@ document.addEventListener('click', e => {
 /* ---------- 복습 ---------- */
 let ses = null;   // { mode, ids, i, ok, bad, phase:'ask'|'result', r:{ok, given, auto, reason, memo} }
 
-function startSession(mode) {
-  const list = mode === 'retry' ? items.filter(isRetry) : items.filter(isDue).sort(byDue);
+function startSession(mode, all) {
+  const list = mode === 'retry' ? items.filter(isRetry) : mode === 'exam' ? examQueue() : todayQueue(all);
   if (!list.length) return;
   ses = { mode, ids: list.map(i => i.id), i: 0, ok: 0, bad: 0, phase: 'ask' };
   show('review');
 }
 const cur = () => items.find(x => x.id === ses.ids[ses.i]);
 
-function planText(it, retry) {
-  if (retry) return '다시 풀기 성공! 복습 날짜는 그대로예요.';
+function planText(it, mode) {
+  if (mode === 'retry') return '다시 풀기 성공! 복습 날짜는 그대로예요.';
+  if (mode === 'exam') return '시험 대비 통과! 복습 날짜는 그대로예요.';
   const c = grade(structuredClone(it), { ok: true });
   if (c.done) return `${need(it)}번 연속 정답! 이 문제는 완료예요.`;
   return `다음 복습: ${fmt(c.due)} (${diffDays(today(), c.due)}일 뒤) · 연속 정답 ${c.streak}/${need(it)}`;
@@ -452,7 +809,7 @@ async function commit() {
   if (!ses || ses.phase !== 'result' || ses.saved) return;
   ses.saved = true;
   const it = cur();
-  grade(it, { ...ses.r, retry: ses.mode === 'retry' });
+  grade(it, { ...ses.r, retry: ses.mode === 'retry', exam: ses.mode === 'exam' && SET.exam ? SET.exam.id : null });
   ses.r.ok ? ses.ok++ : ses.bad++;
   await putItem(it);
 }
@@ -461,20 +818,20 @@ async function renderReview() {
   const p = $('p-review');
   if (!ses) { show('today'); return; }
   if (ses.i >= ses.ids.length) {
-    p.innerHTML = `<div class="hello"><b>${ses.mode === 'retry' ? '다시 풀기 끝!' : '오늘 복습 끝!'}</b><p>맞힘 ${ses.ok}개 · 틀림 ${ses.bad}개</p>${ses.bad ? `<p>틀린 문제는 내일 다시 나오고, 오늘 '다시 풀기'에도 넣어 뒀어요.</p>` : ''}<button class="go" id="endBtn">처음으로</button></div>`;
+    p.innerHTML = `<div class="hello"><b>${{ retry: '다시 풀기 끝!', exam: '시험 대비 끝!' }[ses.mode] || '오늘 복습 끝!'}</b><p>맞힘 ${ses.ok}개 · 틀림 ${ses.bad}개</p>${ses.bad ? `<p>틀린 문제는 내일 다시 나오고, 오늘 '다시 풀기'에도 넣어 뒀어요.</p>` : ''}<button class="go" id="endBtn">처음으로</button></div>`;
     $('endBtn').onclick = () => { ses = null; show('today'); };
     return;
   }
   const it = cur(), r = ses.r;
   let h = `<div class="rtop"><button class="ghost" id="quit">그만하기</button><span>${ses.i + 1} / ${ses.ids.length}</span></div>`;
   h += `<div class="prog"><i style="width:${(ses.i / ses.ids.length) * 100}%"></i></div>`;
-  h += `<div class="rmeta"><b>${esc(it.subject)}${it.unit ? ' · ' + esc(it.unit) : ''}</b><span>난이도 ${it.level} · 연속 정답 ${it.streak}/${need(it)}${ses.mode === 'retry' ? ' · 다시 풀기' : ''}</span></div>`;
+  h += `<div class="rmeta"><b>${esc(it.subject)}${it.unit ? ' · ' + esc(it.unit) : ''}</b><span>난이도 ${it.level} · 연속 정답 ${it.streak}/${need(it)}${{ retry: ' · 다시 풀기', exam: ' · 시험 대비' }[ses.mode] || ''}</span></div>`;
   h += `<img class="photo" data-ph="${it.id}-q" alt="문제 사진">`;
   if (ses.phase === 'ask') {
-    if (it.answer) h += `<form class="ans" id="ansForm"><input id="ans" placeholder="내 답" autocomplete="off" enterkeyhint="done"><button class="go">채점하기</button></form>`;
+    if (it.answer) h += `<form class="ans" id="ansForm"><input id="ans" placeholder="내 답" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done"><button class="go">채점하기</button></form>`;
     else h += `<p class="hint">정답을 등록하지 않은 문제예요. 풀고 나서 맞았는지 골라 주세요.</p>${it.sol ? `<details class="sol"><summary>해설 보기</summary><img data-ph="${it.id}-s" alt="해설 사진"></details>` : ''}<div class="two"><button class="go ok" data-self="1">맞힘</button><button class="go bad" data-self="0">틀림</button></div>`;
   } else {
-    if (r.ok) h += `<div class="res ok"><b>정답!</b><span>${esc(planText(it, ses.mode === 'retry'))}</span></div>`;
+    if (r.ok) h += `<div class="res ok"><b>정답!</b><span>${esc(planText(it, ses.mode))}</span></div>`;
     else h += `<div class="res bad"><b>틀렸어요</b>${r.auto ? `<span>내 답 ${esc(r.given)} · 정답 ${esc(it.answer)}</span>` : ''}</div>`;
     if (!r.ok && r.auto) h += '<button class="link" id="actually">내 답도 맞는 답이에요 (정답으로 바꾸기)</button>';
     if (it.sol) h += `<details class="sol"${r.ok ? '' : ' open'}><summary>해설 보기</summary><img data-ph="${it.id}-s" alt="해설 사진"></details>`;
@@ -491,7 +848,7 @@ async function renderReview() {
         e.preventDefault();
         const given = $('ans').value.trim();
         if (!given) { toast('답을 입력해 주세요'); return; }
-        toResult({ ok: same(given, it.answer), given, auto: true });
+        toResult({ ok: correct(given, it), given, auto: true });
       };
     }
     p.querySelectorAll('[data-self]').forEach(b => b.onclick = () => toResult({ ok: b.dataset.self === '1', auto: false }));
@@ -511,15 +868,22 @@ async function renderReview() {
 function toResult(r) { ses.r = { reason: '', memo: '', ...r }; ses.phase = 'result'; renderReview(); }
 
 /* ---------- 등록 · 수정 ---------- */
-const form = { editing: null, subject: '', level: '중', reason: '', q: null, t: null, s: null };
+const form = { editing: null, subject: '', level: '중', reason: '', q: null, t: null, s: null, qEdit: null, sEdit: null, sDel: false };
 
 function resetForm() {
-  Object.assign(form, { editing: null, subject: '', level: '중', reason: '', q: null, t: null, s: null });
+  Object.assign(form, { editing: null, subject: '', level: '중', reason: '', q: null, t: null, s: null, qEdit: null, sEdit: null, sDel: false });
   $('addForm').reset();
   setShot('qShot', '', '눌러서 사진 찍기 · 고르기');
   setShot('sShot', '', '해설·풀이 사진 추가');
   $('addBtn').textContent = '등록하기';
   $('cancelEdit').hidden = true;
+  syncShotLinks();
+}
+function syncShotLinks() {
+  const old = form.editing && items.find(i => i.id === form.editing);
+  const hasS = !!form.s || !!(old && old.sol && !form.sDel);
+  $('qRedo').hidden = !(form.q || old);
+  $('sRedo').hidden = $('sDel').hidden = !hasS;
 }
 function setShot(id, src, text) {
   const el = $(id), input = el.querySelector('input');
@@ -555,20 +919,32 @@ $('addReasons').onclick = e => {
   renderAdd();
 };
 
-$('qFile').onchange = async e => {
-  const f = e.target.files[0]; if (!f) return;
+// kind: 'q' 문제, 's' 해설. 새 사진이면 file, 다시 다듬기면 file 없이
+async function editShot(kind, file) {
   try {
-    form.q = await shrink(f, 1600);
-    form.t = await shrink(f, 400);
-    setShot('qShot', URL.createObjectURL(form.q));
+    let st = form[kind + 'Edit'];
+    if (file) st = { src: await loadCanvas(file), corners: null, scan: true };
+    else if (!st) {
+      // 저장된 사진을 다시 다듬을 땐 이미 처리된 사진이라 스캔 효과는 꺼 둬요
+      const r = await tx('photos', 'readonly', s => s.get(form.editing + '-' + kind));
+      if (!r) return;
+      st = { src: await loadCanvas(r.blob), corners: null, scan: false };
+    }
+    const out = await openEditor(st);
+    if (!out) return;
+    form[kind + 'Edit'] = st;
+    form[kind] = await toJpeg(out);
+    if (kind === 'q') form.t = await toJpeg(fitTo(out, 400));
+    else form.sDel = false;
+    setShot(kind + 'Shot', URL.createObjectURL(form[kind]));
+    syncShotLinks();
   } catch (err) { toast(err.message); }
-  e.target.value = '';
-};
-$('sFile').onchange = async e => {
-  const f = e.target.files[0]; if (!f) return;
-  try { form.s = await shrink(f, 1600); setShot('sShot', URL.createObjectURL(form.s)); } catch (err) { toast(err.message); }
-  e.target.value = '';
-};
+}
+$('qFile').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) editShot('q', f); };
+$('sFile').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) editShot('s', f); };
+$('qRedo').onclick = () => editShot('q');
+$('sRedo').onclick = () => editShot('s');
+$('sDel').onclick = () => { form.s = null; form.sEdit = null; form.sDel = true; setShot('sShot', '', '해설·풀이 사진 추가'); syncShotLinks(); };
 
 let persisted = false;
 $('addForm').onsubmit = async e => {
@@ -585,6 +961,7 @@ $('addForm').onsubmit = async e => {
     if (reg) Object.assign(reg, { reason: form.reason, memo: $('addMemo').value.trim() });
     if (form.q) { await putPhoto(it.id + '-q', form.q); await putPhoto(it.id + '-t', form.t); forgetUrl(it.id + '-q'); forgetUrl(it.id + '-t'); }
     if (form.s) { await putPhoto(it.id + '-s', form.s); forgetUrl(it.id + '-s'); it.sol = true; }
+    else if (form.sDel && it.sol) { await delPhoto(it.id + '-s'); forgetUrl(it.id + '-s'); it.sol = false; }
     it.sol = !!it.sol;
     await putItem(it);
     if (!old) items.push(it);
@@ -615,29 +992,45 @@ async function startEdit(id) {
   if (it.sol) setShot('sShot', await photoUrl(id + '-s'));
   $('addBtn').textContent = '수정하기';
   $('cancelEdit').hidden = false;
+  syncShotLinks();
   show('add');
 }
 
 /* ---------- 목록 ---------- */
-const lf = { subject: '전체', done: false };
-function renderList() {
-  const p = $('p-list');
-  const subs = ['전체', ...new Set(items.map(i => i.subject))];
-  if (!subs.includes(lf.subject)) lf.subject = '전체';
-  const list = items.filter(i => i.done === lf.done && (lf.subject === '전체' || i.subject === lf.subject))
+const lf = { subject: '전체', done: false, q: '' };
+function listFiltered() {
+  const q = lf.q.trim().toLowerCase();
+  return items.filter(i => i.done === lf.done && (lf.subject === '전체' || i.subject === lf.subject) &&
+      (!q || [i.subject, i.unit, i.answer, ...i.history.flatMap(h => [h.reason, h.memo])].join(' ').toLowerCase().includes(q)))
     .sort(lf.done ? (a, b) => (b.doneDay || '').localeCompare(a.doneDay || '') : byDue);
-  let h = `<div class="filters"><div class="seg2" id="doneSeg"><button aria-pressed="${!lf.done}" data-d="0">진행 중 ${items.filter(i => !i.done).length}</button><button aria-pressed="${lf.done}" data-d="1">완료 ${items.filter(i => i.done).length}</button></div>`;
-  h += `<div class="chips" id="subjFilter">${subs.map(s => `<button aria-pressed="${lf.subject === s}">${esc(s)}</button>`).join('')}</div></div>`;
-  if (!list.length) h += `<p class="empty">${lf.done ? '아직 완료한 문제가 없어요.' : '진행 중인 문제가 없어요.'}</p>`;
-  else h += '<div class="grid">' + list.map(it => {
+}
+function renderGrid() {
+  const list = listFiltered(), box = $('lgrid');
+  if (!list.length) box.innerHTML = `<p class="empty">${lf.q ? '찾는 문제가 없어요.' : lf.done ? '아직 완료한 문제가 없어요.' : '진행 중인 문제가 없어요.'}</p>`;
+  else box.innerHTML = '<div class="grid">' + list.map(it => {
     const st = it.done ? `<small class="done">${fmtShort(it.doneDay)} 완료</small>`
       : it.due <= today() ? `<small class="late">오늘 복습${it.due < today() ? ` (${diffDays(it.due, today())}일 밀림)` : ''}</small>`
       : `<small>다음 ${fmtShort(it.due)} · ${it.streak}/${need(it)}</small>`;
     return `<button class="card" data-open="${it.id}"><img data-ph="${it.id}-t" alt=""><b>${esc(it.subject)}${it.unit ? ' · ' + esc(it.unit) : ''}</b>${st}</button>`;
   }).join('') + '</div>';
+  $('pdfCount').textContent = `지금 목록에 보이는 문제 ${list.length}개로 만들어요. 과목·검색으로 골라 낼 수 있어요.`;
+  fillImgs(box);
+}
+function renderList() {
+  const p = $('p-list');
+  const subs = ['전체', ...new Set(items.map(i => i.subject))];
+  if (!subs.includes(lf.subject)) lf.subject = '전체';
+  let h = `<div class="filters"><div class="seg2" id="doneSeg"><button aria-pressed="${!lf.done}" data-d="0">진행 중 ${items.filter(i => !i.done).length}</button><button aria-pressed="${lf.done}" data-d="1">완료 ${items.filter(i => i.done).length}</button></div>`;
+  h += `<div class="chips" id="subjFilter">${subs.map(s => `<button aria-pressed="${lf.subject === s}">${esc(s)}</button>`).join('')}</div>`;
+  h += `<input class="search" id="lq" type="search" placeholder="단원·메모·정답으로 찾기" value="${esc(lf.q)}" autocomplete="off"></div><div id="lgrid"></div>`;
+  h += `<div class="box"><b>PDF 오답노트</b><p class="hint" id="pdfCount"></p><label class="check"><input type="checkbox" id="pdfAns" checked> 맨 뒤에 정답 페이지 넣기</label><label class="check"><input type="checkbox" id="pdfSpace" checked> 문제마다 풀이 칸 넣기</label><button class="go line" id="pdfBtn">PDF 만들기</button><p class="hint">인쇄 화면이 뜨면 'PDF로 저장'을 고르세요. 아이폰은 인쇄 화면 위쪽의 공유 버튼으로 PDF를 저장하거나 보낼 수 있어요.</p></div>`;
+  h += `<div class="box"><b>하루 복습 개수</b><p class="hint">한꺼번에 많이 등록해도 하루에 이만큼만 나와요. 남은 문제는 다음 날 먼저 나와요.</p><div class="chips" id="capChips">${[0, 5, 10, 15, 20, 30].map(n => `<button data-cap="${n}" aria-pressed="${SET.cap === n}">${n ? n + '개' : '제한 없음'}</button>`).join('')}</div></div>`;
   h += `<div class="box"><b>백업</b><p class="hint">사진과 기록은 이 폰 안에만 저장돼요. 폰을 바꾸거나 사파리 기록을 지우면 사라지니 가끔 백업 파일을 저장해 두세요. 홈 화면 앱과 사파리는 저장 공간이 따로라서, 쓰던 곳에서 백업해 다른 곳에서 불러오면 옮길 수 있어요.</p><div class="two"><button class="go line" id="exportBtn">백업 저장</button><button class="go line" id="importBtn">불러오기</button></div></div>`;
   p.innerHTML = h;
-  fillImgs(p);
+  renderGrid();
+  $('lq').oninput = e => { lf.q = e.target.value; renderGrid(); };
+  $('pdfBtn').onclick = makePdf;
+  $('capChips').onclick = e => { const b = e.target.closest('[data-cap]'); if (b) { SET.cap = +b.dataset.cap; saveSet(); renderList(); } };
   $('doneSeg').onclick = e => { const b = e.target.closest('button'); if (b) { lf.done = b.dataset.d === '1'; renderList(); } };
   $('subjFilter').onclick = e => { const b = e.target.closest('button'); if (b) { lf.subject = b.textContent; renderList(); } };
   $('exportBtn').onclick = exportBackup;
@@ -654,7 +1047,7 @@ async function openDetail(id) {
   h += `<dl class="info"><dt>상태</dt><dd>${state}</dd><dt>연속 정답</dt><dd>${it.streak} / ${need(it)}</dd><dt>난이도</dt><dd>${it.level}</dd><dt>정답</dt><dd>${esc(it.answer || '등록 안 함')}</dd><dt>등록</dt><dd>${fmt(it.created)}</dd></dl>`;
   if (it.sol) h += `<details class="sol"><summary>해설 보기</summary><img data-ph="${id}-s" alt="해설 사진"></details>`;
   h += '<span class="label">기록</span><ol class="hist">' + it.history.slice().reverse().map(x => {
-    const kind = x.reg ? '등록' : x.retry ? '다시 풀기' : '복습';
+    const kind = x.reg ? '등록' : x.exam ? '시험 대비' : x.retry ? '다시 풀기' : '복습';
     const why = [x.reason, x.memo].filter(Boolean).join(' — ');
     return `<li class="${x.ok ? 'ok' : 'bad'}"><b>${fmtShort(x.day)} ${kind} · ${x.reg ? '틀린 문제' : x.ok ? '맞힘' : '틀림'}</b>${x.given ? `<span>내 답: ${esc(x.given)}</span>` : ''}${why ? `<span>${esc(why)}</span>` : ''}</li>`;
   }).join('') + '</ol>';
@@ -679,6 +1072,67 @@ async function openDetail(id) {
   d.showModal();
   d.scrollTop = 0;
 }
+
+/* ---------- 시험 대비 설정 ---------- */
+function openExam() {
+  if (!items.length) { toast('먼저 문제를 등록해 주세요'); return; }
+  const e = examOn() ? SET.exam : null;
+  const st = { subjects: e ? [...e.subjects] : [], units: e ? [...e.units] : [] };
+  const subs = [...new Set(items.map(i => i.subject))];
+  const d = $('examDlg');
+  d.innerHTML = `<form class="sheet" id="exForm"><div class="top"><h2>시험 대비 모드</h2><button type="button" class="ghost" id="exClose">닫기</button></div>
+    <p class="hint">시험 범위 문제를 시험 날까지 한 번씩 더 보여 줘요. 이미 완료한 문제도 들어가고, 틀리면 다시 복습 목록으로 돌아와요.</p>
+    <label class="field"><span>시험 이름</span><input id="exName" value="${esc(e ? e.name : '중간고사')}" maxlength="20"></label>
+    <label class="field"><span>시험 날짜</span><input id="exDate" type="date" min="${today()}" value="${e ? e.date : addDays(today(), 14)}"></label>
+    <div class="field"><span>과목</span><div class="chips" id="exSubs"></div></div>
+    <div class="field"><span>단원 (선택)</span><div class="chips" id="exUnits"></div><p class="hint">단원을 안 고르면 그 과목 문제 전부예요.</p></div>
+    <p class="hint" id="exCount"></p>
+    <button class="go">저장</button>${e ? '<button type="button" class="link" id="exOff">시험 대비 끄기</button>' : ''}</form>`;
+  const draw = () => {
+    const unitKeys = st.subjects.flatMap(s => [...new Set(items.filter(i => i.subject === s && i.unit).map(i => i.unit))].map(u => s + '|' + u));
+    st.units = st.units.filter(u => unitKeys.includes(u));
+    $('exSubs').innerHTML = subs.map(s => `<button type="button" data-s="${esc(s)}" aria-pressed="${st.subjects.includes(s)}">${esc(s)}</button>`).join('');
+    $('exUnits').innerHTML = unitKeys.length ? unitKeys.map(u => `<button type="button" data-u="${esc(u)}" aria-pressed="${st.units.includes(u)}">${esc(u.replace('|', ' · '))}</button>`).join('') : '<p class="hint">과목을 고르면 단원이 나와요.</p>';
+    $('exCount').textContent = st.subjects.length ? `범위에 든 문제 ${items.filter(i => inScope(st, i)).length}개` : '';
+  };
+  const toggle = (arr, v) => arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v];
+  draw();
+  $('exSubs').onclick = ev => { const b = ev.target.closest('[data-s]'); if (b) { st.subjects = toggle(st.subjects, b.dataset.s); draw(); } };
+  $('exUnits').onclick = ev => { const b = ev.target.closest('[data-u]'); if (b) { st.units = toggle(st.units, b.dataset.u); draw(); } };
+  $('exClose').onclick = () => d.close();
+  if ($('exOff')) $('exOff').onclick = () => { SET.exam = null; saveSet(); d.close(); toast('시험 대비를 껐어요'); show('today'); };
+  $('exForm').onsubmit = ev => {
+    ev.preventDefault();
+    const date = $('exDate').value;
+    if (!st.subjects.length) { toast('과목을 골라 주세요'); return; }
+    if (!date || date < today()) { toast('시험 날짜를 오늘 이후로 정해 주세요'); return; }
+    SET.exam = { id: e ? e.id : Date.now().toString(36), name: $('exName').value.trim() || '시험', date, subjects: st.subjects, units: st.units };
+    saveSet(); d.close(); show('today');
+  };
+  d.showModal();
+}
+
+/* ---------- PDF 오답노트 (인쇄 → PDF로 저장) ---------- */
+async function makePdf() {
+  const list = listFiltered();
+  if (!list.length) { toast('목록에 문제가 없어요'); return; }
+  const withAns = $('pdfAns').checked, space = $('pdfSpace').checked;
+  const title = '오답노트' + (lf.subject !== '전체' ? ' · ' + lf.subject : '');
+  let h = `<h1 class="ptitle">${esc(title)}</h1><p class="psub">${fmt(today())} · ${list.length}문제</p>`;
+  list.forEach((it, i) => {
+    h += `<div class="pq"><div class="phead"><b>${i + 1}. ${esc(it.subject)}${it.unit ? ' · ' + esc(it.unit) : ''}</b><span>난이도 ${it.level}</span></div><img data-ph="${it.id}-q" alt="">${space ? '<div class="pspace"></div>' : ''}</div>`;
+  });
+  if (withAns) h += `<div class="pans"><h2 class="ptitle">정답</h2><ol>${list.map(it => `<li>${esc(it.answer || '(등록 안 함)')}</li>`).join('')}</ol></div>`;
+  const p = $('print');
+  p.innerHTML = h;
+  await fillImgs(p);
+  await Promise.all([...p.querySelectorAll('img')].map(i => i.decode ? i.decode().catch(() => {}) : null));
+  const old = document.title;
+  document.title = `${title} ${today()}`;   // PDF 파일 이름이 돼요
+  window.print();
+  setTimeout(() => { document.title = old; }, 1000);
+}
+addEventListener('afterprint', () => { $('print').innerHTML = ''; });
 
 /* ---------- 통계 ---------- */
 function bars(rows, red) {
@@ -724,7 +1178,7 @@ async function exportBackup() {
     const photos = await tx('photos', 'readonly', s => s.getAll());
     const ph = [];
     for (const x of photos) ph.push({ id: x.id, data: await toDataUrl(x.blob) });
-    const blob = new Blob([JSON.stringify({ app: 'review', version: 1, exported: new Date().toISOString(), subjects: customSubjects(), items, photos: ph })], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify({ app: 'review', version: 1, exported: new Date().toISOString(), subjects: customSubjects(), settings: SET, items, photos: ph })], { type: 'application/json' });
     const name = `오답백업-${today()}.json`;
     const file = new File([blob], name, { type: 'application/json' });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -748,6 +1202,7 @@ $('importFile').onchange = async e => {
     for (const x of data.photos || []) { await putPhoto(x.id, await (await fetch(x.data)).blob()); forgetUrl(x.id); }
     for (const it of data.items) await putItem(it);
     for (const s of data.subjects || []) addSubject(s);
+    if (data.settings) { SET = { ...SET, ...data.settings }; saveSet(); }
     items = await tx('items', 'readonly', s => s.getAll());
     toast(`${data.items.length}개를 불러왔어요`);
     show(page);
