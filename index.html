@@ -99,6 +99,19 @@ header .date{font-size:14px;color:var(--sub);font-weight:500}
 .day.b{background:var(--bad-bg)}
 .day.today{box-shadow:inset 0 0 0 2px var(--ink)}
 .day.out{visibility:hidden}
+button.day{border:none;color:var(--ink);font:inherit;font-size:13px;font-weight:700;background:transparent}
+button.day.g{background:var(--good-bg)} button.day.m{background:var(--warn-bg)} button.day.b{background:var(--bad-bg)}
+.day.sel{box-shadow:inset 0 0 0 2px var(--sub)}
+.detail{border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.dtop{display:flex;align-items:center;justify-content:space-between}
+.dtop b{font-size:16px}
+.x{width:32px;height:32px;border:none;background:var(--soft);border-radius:8px;font-size:13px}
+.drow{display:flex;justify-content:space-between;font-size:14px;color:var(--sub)}
+.drow b{color:var(--ink);font-variant-numeric:tabular-nums}
+.del,.delall{height:44px;border-radius:12px;font-size:14px;font-weight:700}
+.del{margin-top:4px;border:1px solid var(--bad);background:var(--bg);color:var(--bad)}
+.delall{border:none;background:transparent;color:var(--sub);text-decoration:underline;align-self:center;padding:0 12px}
+.del.arm,.delall.arm{background:var(--bad);color:#fff;border-color:var(--bad);text-decoration:none}
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--sub)}
 .legend span{display:flex;align-items:center;gap:5px}
 .legend i{width:12px;height:12px;border-radius:4px;display:inline-block}
@@ -161,6 +174,14 @@ header .date{font-size:14px;color:var(--sub);font-weight:500}
       <span><i style="background:var(--warn-bg)"></i>절반 이상</span>
       <span><i style="background:var(--bad-bg)"></i>절반 미만</span>
     </div>
+    <div class="detail" id="detail" hidden>
+      <div class="dtop"><b id="dTitle"></b><button class="x" id="dClose" aria-label="닫기">✕</button></div>
+      <div class="drow"><span>인증</span><b id="dSec"></b></div>
+      <div class="drow"><span>자리 비움·딴 앱</span><b id="dAway"></b></div>
+      <div class="drow"><span>졸음</span><b id="dSleep"></b></div>
+      <button class="del" id="dDel">이 날 기록 지우기</button>
+    </div>
+    <button class="delall" id="delAll">전체 기록 지우기</button>
   </section>
 </div>
 <div class="toast" id="toast" hidden></div>
@@ -244,12 +265,53 @@ function renderCal(){
   for(let i=0; i<first; i++){ const e = document.createElement("div"); e.className = "day out"; g.appendChild(e); }
   for(let i=1; i<=days; i++){
     const k = dkey(new Date(y, m, i)), rec = store.days[k];
-    const e = document.createElement("div");
-    e.className = "day " + cls(rec) + (k === tk ? " today" : "");
+    const has = rec && (rec.sec + rec.away + rec.sleepy) >= 1;
+    const e = document.createElement(has ? "button" : "div");
+    e.className = "day " + cls(rec) + (k === tk ? " today" : "") + (k === selDay ? " sel" : "");
     e.innerHTML = "<span>"+i+"</span><small>"+(rec && rec.sec >= 60 ? hm(rec.sec) : "")+"</small>";
+    if(has){ e.setAttribute("aria-label", (m+1)+"월 "+i+"일 기록 보기"); e.onclick = () => openDay(k); }
     g.appendChild(e);
   }
 }
+
+/* ---------- 기록 보기·지우기 ---------- */
+let selDay = null;
+function openDay(k){
+  selDay = k;
+  const r = store.days[k], [, mm, dd] = k.split("-");
+  $("dTitle").textContent = (+mm)+"월 "+(+dd)+"일";
+  $("dSec").textContent = hms(r.sec);
+  $("dAway").textContent = hms(r.away);
+  $("dSleep").textContent = hms(r.sleepy);
+  disarm($("dDel"), "이 날 기록 지우기");
+  $("detail").hidden = false;
+  renderCal();
+}
+function closeDay(){ selDay = null; $("detail").hidden = true; renderCal(); }
+$("dClose").onclick = closeDay;
+
+const armT = new WeakMap();
+function disarm(b, label){ b.classList.remove("arm"); b.textContent = label; clearTimeout(armT.get(b)); }
+function twoTap(b, label, action){
+  if(!b.classList.contains("arm")){
+    b.classList.add("arm"); b.textContent = "한 번 더 누르면 삭제돼요";
+    armT.set(b, setTimeout(() => disarm(b, label), 3000));
+    return;
+  }
+  disarm(b, label); action();
+}
+function wipeDay(k){
+  if(k === dkey()){ const d = today(); d.sec = d.away = d.sleepy = 0; sess = { sec:0, away:0, sleepy:0 }; }
+  else delete store.days[k];
+}
+$("dDel").onclick = () => twoTap($("dDel"), "이 날 기록 지우기", () => {
+  wipeDay(selDay); save(); closeDay(); renderToday(); renderSess(); toast("기록을 지웠어요");
+});
+$("delAll").onclick = () => twoTap($("delAll"), "전체 기록 지우기", () => {
+  const goal = today().goal;
+  store.days = {}; today().goal = goal; sess = { sec:0, away:0, sleepy:0 };
+  save(); closeDay(); renderToday(); renderSess(); toast("모든 기록을 지웠어요");
+});
 $("prev").onclick = () => { calMonth.setMonth(calMonth.getMonth()-1); renderCal(); };
 $("next").onclick = () => { calMonth.setMonth(calMonth.getMonth()+1); renderCal(); };
 
