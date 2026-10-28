@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="공부감시">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#ffffff">
+<title>공부 감시 타이머</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap">
+<style>
+/* 흰 바탕 · 검은 글씨 · 굵은 고딕. 위에서 아래로: 오늘 인증 시간 → 감시 카메라 → 달력 */
+:root{
+  --bg:#ffffff; --ink:#111111; --sub:#707070; --line:#e7e7e7; --soft:#f5f5f5;
+  --good:#16a34a; --good-bg:#dcf3e4;
+  --warn:#d97706; --warn-bg:#fdf1cf;
+  --bad:#dc2626;  --bad-bg:#fbdcdc;
+  --font:"Noto Sans KR",-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  color-scheme:light;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);-webkit-text-size-adjust:100%}
+body{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+[hidden]{display:none!important}
+button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.wrap{max-width:480px;margin:0 auto;padding-block:20px 48px;display:flex;flex-direction:column;gap:28px}
+
+header{display:flex;align-items:baseline;justify-content:space-between}
+header h1{margin:0;font-size:20px;font-weight:900;letter-spacing:-0.02em}
+header .date{font-size:14px;color:var(--sub);font-weight:500}
+
+/* 오늘 */
+.today{display:flex;flex-direction:column;gap:14px}
+.label{font-size:12px;font-weight:700;color:var(--sub);letter-spacing:0.06em}
+.clock{font-size:56px;line-height:1;font-weight:900;letter-spacing:-0.03em;font-variant-numeric:tabular-nums}
+.bar{height:10px;background:var(--soft);border-radius:99px;overflow:hidden}
+.bar>i{display:block;height:100%;width:0;background:var(--ink);border-radius:99px;transition:width .4s}
+.bar.done>i{background:var(--good)}
+.goalrow{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.goalrow .txt{font-size:14px;color:var(--sub)}
+.goalrow .txt b{color:var(--ink);font-weight:700}
+.stepper{display:flex;align-items:center;gap:6px}
+.stepper button{width:36px;height:36px;border:1px solid var(--line);background:var(--bg);border-radius:10px;font-size:18px;font-weight:700;line-height:1}
+.stepper span{min-width:64px;text-align:center;font-weight:700;font-size:15px;font-variant-numeric:tabular-nums}
+
+/* 카메라 */
+.cam{display:flex;flex-direction:column;gap:12px}
+.view{position:relative;aspect-ratio:4/3;max-width:100%;background:var(--soft);border-radius:16px;overflow:hidden}
+.view video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block}
+.view .ph{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:20px;text-align:center;color:var(--sub);font-size:14px;line-height:1.6}
+.view .ph b{color:var(--ink);font-size:16px}
+.pill{position:absolute;left:12px;top:12px;padding:6px 12px;border-radius:99px;font-size:13px;font-weight:700;background:var(--bg);color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.pill.focus{background:var(--good);color:#fff}
+.pill.away{background:var(--warn);color:#fff}
+.pill.sleepy{background:var(--bad);color:#fff}
+.view.alert{box-shadow:inset 0 0 0 4px var(--bad)}
+.go{height:56px;border:none;border-radius:14px;background:var(--ink);color:var(--bg);font-size:17px;font-weight:700}
+.go.stop{background:var(--bg);color:var(--ink);border:2px solid var(--ink)}
+.go:disabled{opacity:.5}
+.sound{display:flex;align-items:center;justify-content:space-between;height:48px;padding:0 14px;border:1px solid var(--line);border-radius:14px;background:var(--bg);font-size:15px;font-weight:700}
+.sound i{position:relative;width:46px;height:28px;border-radius:99px;background:var(--line);transition:background .2s}
+.sound i::after{content:"";position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:transform .2s}
+.sound[aria-checked="true"] i{background:var(--ink)}
+.sound[aria-checked="true"] i::after{transform:translateX(18px)}
+.warnbox{position:absolute;left:12px;right:12px;bottom:12px;padding:14px;border-radius:12px;background:var(--bad);color:#fff;font-size:16px;font-weight:900;text-align:center;line-height:1.4}
+.warnbox.away{background:var(--warn)}
+@media (prefers-reduced-motion:no-preference){.warnbox{animation:blink 1s step-end infinite}}
+@keyframes blink{50%{opacity:.55}}
+.msg{font-size:13px;color:var(--bad);line-height:1.5;margin:0}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:14px}
+.stats div{padding:12px 8px;text-align:center;display:flex;flex-direction:column;gap:4px}
+.stats div+div{border-left:1px solid var(--line)}
+.stats small{font-size:12px;color:var(--sub);font-weight:500}
+.stats b{font-size:17px;font-variant-numeric:tabular-nums}
+.note{font-size:12px;color:var(--sub);line-height:1.6;margin:0}
+
+/* 달력 */
+.cal{display:flex;flex-direction:column;gap:12px}
+.calhead{display:flex;align-items:center;justify-content:space-between}
+.calhead h2{margin:0;font-size:18px;font-weight:900}
+.calhead .nav{display:flex;gap:6px}
+.calhead .nav button{width:36px;height:36px;border:1px solid var(--line);background:var(--bg);border-radius:10px;font-weight:700}
+.streak{font-size:14px;color:var(--sub)}
+.streak b{color:var(--ink);font-size:16px}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.grid .dow{font-size:12px;color:var(--sub);text-align:center;padding-bottom:4px;font-weight:500}
+.grid .dow:first-child{color:var(--bad)}
+.day{aspect-ratio:1/1.15;border-radius:10px;padding:5px 2px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;font-size:13px;font-weight:700;min-width:0}
+.day small{font-size:10px;font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums}
+.day.g{background:var(--good-bg)}
+.day.m{background:var(--warn-bg)}
+.day.b{background:var(--bad-bg)}
+.day.today{box-shadow:inset 0 0 0 2px var(--ink)}
+.day.out{visibility:hidden}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--sub)}
+.legend span{display:flex;align-items:center;gap:5px}
+.legend i{width:12px;height:12px;border-radius:4px;display:inline-block}
+
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:12px;font-size:14px;font-weight:500;max-width:calc(100% - 32px);text-align:center;z-index:20}
+@media (prefers-reduced-motion:reduce){.bar>i{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>공부 감시</h1>
+    <span class="date" id="date"></span>
+  </header>
+
+  <section class="today">
+    <span class="label">오늘 인증된 공부 시간</span>
+    <div class="clock" id="clock">0:00:00</div>
+    <div class="bar" id="bar"><i></i></div>
+    <div class="goalrow">
+      <span class="txt" id="goaltxt"></span>
+      <div class="stepper">
+        <button id="gminus" aria-label="목표 30분 줄이기">−</button>
+        <span id="goalval"></span>
+        <button id="gplus" aria-label="목표 30분 늘리기">+</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="cam">
+    <div class="view" id="view">
+      <video id="video" playsinline muted autoplay></video>
+      <div class="ph" id="ph"><b>폰을 책상에 세워 두세요</b>얼굴이 화면에 들어오게 두고<br>시작을 누르면 감시가 시작돼요</div>
+      <span class="pill" id="pill" hidden></span>
+      <div class="warnbox" id="warnbox" role="alert" hidden></div>
+    </div>
+    <button class="go" id="go">감시 시작</button>
+    <button class="sound" id="sound" role="switch" aria-checked="true"><span>경고음</span><i></i></button>
+    <p class="msg" id="msg" hidden></p>
+    <div class="stats">
+      <div><small>이번 세션 인증</small><b id="sSec">0:00</b></div>
+      <div><small>자리 비움·딴 앱</small><b id="sAway">0:00</b></div>
+      <div><small>졸음</small><b id="sSleep">0:00</b></div>
+    </div>
+    <p class="note">얼굴이 보이고 눈을 뜨고 있는 시간만 기록돼요. 2초 넘게 자리를 비우거나, 4초 넘게 눈을 감거나, 다른 앱으로 나가면 그 시간은 빠져요. 영상은 저장되지 않고 이 폰 안에서만 분석돼요. 오래 쓸 땐 충전기를 꽂아 두세요.</p>
+  </section>
+
+  <section class="cal">
+    <div class="calhead">
+      <h2 id="calTitle"></h2>
+      <div class="nav">
+        <button id="prev" aria-label="이전 달">‹</button>
+        <button id="next" aria-label="다음 달">›</button>
+      </div>
+    </div>
+    <div class="streak" id="streak"></div>
+    <div class="grid" id="grid"></div>
+    <div class="legend">
+      <span><i style="background:var(--good-bg)"></i>목표 달성</span>
+      <span><i style="background:var(--warn-bg)"></i>절반 이상</span>
+      <span><i style="background:var(--bad-bg)"></i>절반 미만</span>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script type="module">
+const LIB = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+const MODEL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
+const KEY = "studycam-v1";
+const $ = id => document.getElementById(id);
+
+/* ---------- 저장 ---------- */
+function load(){
+  try{ const s = JSON.parse(localStorage.getItem(KEY)); if(s && s.days) return s; }catch(e){}
+  return { goalMin:180, days:{} };
+}
+let store = load();
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(store)); }catch(e){} }
+function dkey(d = new Date()){
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function today(){
+  const k = dkey();
+  if(!store.days[k]) store.days[k] = { sec:0, away:0, sleepy:0, goal:store.goalMin };
+  return store.days[k];
+}
+
+/* ---------- 표시 ---------- */
+const hms = s => { s = Math.floor(s); return Math.floor(s/3600)+":"+String(Math.floor(s/60)%60).padStart(2,"0")+":"+String(s%60).padStart(2,"0"); };
+const hm  = s => { const m = Math.floor(s/60); return Math.floor(m/60)+":"+String(m%60).padStart(2,"0"); };
+const ms  = s => { s = Math.floor(s); return Math.floor(s/60)+":"+String(s%60).padStart(2,"0"); };
+const goalLabel = m => (m%60 ? Math.floor(m/60)+"시간 "+(m%60)+"분" : (m/60)+"시간");
+
+function renderToday(){
+  const d = today();
+  const now = new Date();
+  $("date").textContent = (now.getMonth()+1)+"월 "+now.getDate()+"일 "+"일월화수목금토"[now.getDay()]+"요일";
+  $("clock").textContent = hms(d.sec);
+  const ratio = Math.min(d.sec/(d.goal*60), 1);
+  $("bar").firstElementChild.style.width = (ratio*100)+"%";
+  $("bar").classList.toggle("done", ratio >= 1);
+  const left = d.goal*60 - d.sec;
+  $("goaltxt").innerHTML = left > 0 ? "목표까지 <b>"+hm(left)+"</b> 남음" : "<b>오늘 목표 달성!</b>";
+  $("goalval").textContent = goalLabel(d.goal);
+}
+let sess = { sec:0, away:0, sleepy:0 };
+function renderSess(){
+  $("sSec").textContent = hm(sess.sec);
+  $("sAway").textContent = ms(sess.away);
+  $("sSleep").textContent = ms(sess.sleepy);
+}
+
+function changeGoal(delta){
+  const g = Math.max(30, Math.min(720, today().goal + delta));
+  store.goalMin = g; today().goal = g;
+  save(); renderToday(); renderCal();
+}
+$("gminus").onclick = () => changeGoal(-30);
+$("gplus").onclick  = () => changeGoal(30);
+
+/* ---------- 달력 ---------- */
+let calMonth = new Date(); calMonth.setDate(1);
+function cls(rec){
+  if(!rec || rec.sec < 60) return "";
+  const r = rec.sec/(rec.goal*60);
+  return r >= 1 ? "g" : r >= .5 ? "m" : "b";
+}
+function streak(){
+  let n = 0; const d = new Date();
+  if(cls(store.days[dkey(d)]) !== "g") d.setDate(d.getDate()-1);
+  while(cls(store.days[dkey(d)]) === "g"){ n++; d.setDate(d.getDate()-1); }
+  return n;
+}
+function renderCal(){
+  const y = calMonth.getFullYear(), m = calMonth.getMonth();
+  $("calTitle").textContent = y+"년 "+(m+1)+"월";
+  const n = streak();
+  $("streak").innerHTML = n ? "연속 목표 달성 <b>"+n+"일</b>" : "연속 기록이 없어요. 오늘부터 시작!";
+  const g = $("grid"); g.innerHTML = "";
+  "일월화수목금토".split("").forEach(c => { const e = document.createElement("div"); e.className = "dow"; e.textContent = c; g.appendChild(e); });
+  const first = new Date(y, m, 1).getDay(), days = new Date(y, m+1, 0).getDate(), tk = dkey();
+  for(let i=0; i<first; i++){ const e = document.createElement("div"); e.className = "day out"; g.appendChild(e); }
+  for(let i=1; i<=days; i++){
+    const k = dkey(new Date(y, m, i)), rec = store.days[k];
+    const e = document.createElement("div");
+    e.className = "day " + cls(rec) + (k === tk ? " today" : "");
+    e.innerHTML = "<span>"+i+"</span><small>"+(rec && rec.sec >= 60 ? hm(rec.sec) : "")+"</small>";
+    g.appendChild(e);
+  }
+}
+$("prev").onclick = () => { calMonth.setMonth(calMonth.getMonth()-1); renderCal(); };
+$("next").onclick = () => { calMonth.setMonth(calMonth.getMonth()+1); renderCal(); };
+
+/* ---------- 알림 ---------- */
+let toastT;
+function toast(t){
+  const e = $("toast"); e.textContent = t; e.hidden = false;
+  clearTimeout(toastT); toastT = setTimeout(() => e.hidden = true, 4000);
+}
+let audio = null;
+if(store.sound === undefined) store.sound = true;
+function renderSound(){ $("sound").setAttribute("aria-checked", String(store.sound)); }
+$("sound").onclick = () => {
+  store.sound = !store.sound; save(); renderSound();
+  toast(store.sound ? "경고음 켜짐" : "경고음 꺼짐 — 경고창만 떠요");
+};
+renderSound();
+function warn(kind){
+  const w = $("warnbox");
+  if(!kind){ w.hidden = true; return; }
+  w.hidden = false;
+  w.className = "warnbox " + kind;
+  w.textContent = kind === "sleepy" ? "졸고 있어요! 눈 떠요" : "자리로 돌아오세요";
+}
+function beep(strong){
+  if(!audio || !store.sound) return;
+  const t0 = audio.currentTime;
+  (strong ? [0, .3] : [0]).forEach(off => {
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = "square"; o.frequency.value = strong ? 1046 : 784;
+    g.gain.setValueAtTime(.0001, t0+off);
+    g.gain.exponentialRampToValueAtTime(.35, t0+off+.02);
+    g.gain.exponentialRampToValueAtTime(.0001, t0+off+.22);
+    o.connect(g).connect(audio.destination);
+    o.start(t0+off); o.stop(t0+off+.25);
+  });
+}
+
+/* ---------- 감시 ---------- */
+const video = $("video");
+let landmarker = null, stream = null, wakeLock = null, running = false;
+let state = "idle", awayRun = 0, closedRun = 0, lastT = 0, lastDetect = 0, lastBeep = 0, saveAcc = 0, hiddenAt = 0;
+
+const STATE_TEXT = { focus:"집중 중", away:"자리 비움", sleepy:"졸음 감지!", loading:"AI 준비 중…" };
+function setState(s){
+  if(state === s) return;
+  state = s;
+  const p = $("pill");
+  p.hidden = s === "idle";
+  p.className = "pill " + s;
+  p.textContent = STATE_TEXT[s] || "";
+  $("view").classList.toggle("alert", s === "sleepy");
+}
+function showMsg(t){ const e = $("msg"); e.textContent = t; e.hidden = !t; }
+
+async function getLandmarker(){
+  if(landmarker) return landmarker;
+  const { FilesetResolver, FaceLandmarker } = await import(LIB + "/vision_bundle.mjs");
+  const files = await FilesetResolver.forVisionTasks(LIB + "/wasm");
+  const opts = d => ({ baseOptions:{ modelAssetPath:MODEL, delegate:d }, runningMode:"VIDEO", numFaces:1, outputFaceBlendshapes:true });
+  try{ landmarker = await FaceLandmarker.createFromOptions(files, opts("GPU")); }
+  catch(e){ landmarker = await FaceLandmarker.createFromOptions(files, opts("CPU")); }
+  return landmarker;
+}
+async function lockScreen(){
+  try{ if("wakeLock" in navigator) wakeLock = await navigator.wakeLock.request("screen"); }catch(e){}
+}
+
+async function start(){
+  const btn = $("go");
+  btn.disabled = true; showMsg("");
+  try{
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    audio.resume();
+  }catch(e){}
+  try{
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw { name:"NoMedia" };
+    stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:"user", width:{ideal:640}, height:{ideal:480} }, audio:false });
+    video.srcObject = stream;
+    await video.play();
+    $("ph").hidden = true;
+    setState("loading");
+    await getLandmarker();
+  }catch(e){
+    stopCamera(); setState("idle"); btn.disabled = false;
+    if(e && (e.name === "NotAllowedError" || e.name === "SecurityError"))
+      showMsg("카메라 권한이 꺼져 있어요. 아이폰 설정 › 앱 › Safari › 카메라에서 '허용'으로 바꾼 뒤 다시 눌러 주세요.");
+    else if(e && e.name === "NoMedia")
+      showMsg("이 브라우저에서는 카메라를 쓸 수 없어요. https 주소로 연 사파리에서 다시 시도해 주세요.");
+    else
+      showMsg("AI를 불러오지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.");
+    return;
+  }
+  running = true; sess = { sec:0, away:0, sleepy:0 };
+  awayRun = closedRun = 0; lastT = lastDetect = performance.now();
+  await lockScreen();
+  btn.disabled = false; btn.textContent = "감시 종료"; btn.classList.add("stop");
+  renderSess();
+  requestAnimationFrame(loop);
+}
+function stopCamera(){
+  if(stream){ stream.getTracks().forEach(t => t.stop()); stream = null; }
+  video.srcObject = null; $("ph").hidden = false;
+}
+function stop(){
+  running = false; stopCamera(); setState("idle"); warn("");
+  try{ wakeLock && wakeLock.release(); }catch(e){} wakeLock = null;
+  save(); renderToday(); renderCal();
+  const b = $("go"); b.textContent = "감시 시작"; b.classList.remove("stop");
+  if(sess.sec >= 60) toast("이번 세션 "+hm(sess.sec)+" 인증 완료");
+}
+$("go").onclick = () => running ? stop() : start();
+
+function loop(){
+  if(!running) return;
+  const now = performance.now();
+  if(now - lastDetect >= 200 && video.readyState >= 2){
+    lastDetect = now;
+    let face = false, closed = false;
+    try{
+      const r = landmarker.detectForVideo(video, now);
+      face = !!(r.faceLandmarks && r.faceLandmarks.length);
+      const bs = r.faceBlendshapes && r.faceBlendshapes[0];
+      if(face && bs){
+        const get = n => { const c = bs.categories.find(o => o.categoryName === n); return c ? c.score : 0; };
+        closed = (get("eyeBlinkLeft") + get("eyeBlinkRight"))/2 > 0.5;
+      }
+    }catch(e){}
+    const dt = Math.min((now - lastT)/1000, 1); lastT = now;
+    tick(dt, face, closed, now);
+  }
+  requestAnimationFrame(loop);
+}
+function tick(dt, face, closed, now){
+  if(!face){ awayRun += dt; closedRun = 0; }
+  else { awayRun = 0; closedRun = closed ? closedRun + dt : 0; }
+  const s = awayRun > 2 ? "away" : closedRun > 4 ? "sleepy" : "focus";
+  const d = today();
+  if(s === "focus"){ d.sec += dt; sess.sec += dt; }
+  else if(s === "away"){ d.away += dt; sess.away += dt; }
+  else { d.sleepy += dt; sess.sleepy += dt; }
+  setState(s);
+  const alarm = s === "sleepy" ? "sleepy" : (s === "away" && awayRun > 15) ? "away" : "";
+  warn(alarm);
+  if(alarm && now - lastBeep > 1500){ beep(alarm === "sleepy"); lastBeep = now; }
+  saveAcc += dt; if(saveAcc > 5){ save(); saveAcc = 0; }
+  renderToday(); renderSess();
+}
+
+/* 다른 앱으로 나가면 그 시간은 자리 비움으로 */
+document.addEventListener("visibilitychange", () => {
+  if(!running) return;
+  if(document.hidden){ hiddenAt = Date.now(); save(); }
+  else{
+    const gone = (Date.now() - hiddenAt)/1000;
+    if(hiddenAt && gone > 1){
+      today().away += gone; sess.away += gone; save();
+      toast("다른 앱 사용 "+ms(gone)+" — 기록에서 뺐어요");
+    }
+    hiddenAt = 0; lastT = performance.now();
+    lockScreen(); renderSess();
+  }
+});
+window.addEventListener("pagehide", save);
+
+renderToday(); renderCal(); renderSess();
+setInterval(() => { if(!running){ renderToday(); } }, 60000);
+</script>
+</body>
+</html>
