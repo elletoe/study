@@ -7,7 +7,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="공부감시">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111111" media="(prefers-color-scheme: dark)">
 <title>공부 감시 타이머</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -24,6 +25,16 @@
   padding-top:env(safe-area-inset-top,0px);
   padding-bottom:env(safe-area-inset-bottom,0px);
 }
+/* 밤에 쓸 때: 검은 바탕 · 흰 글씨 */
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#111111; --ink:#f2f2f2; --sub:#9a9a9a; --line:#2c2c2c; --soft:#1d1d1d;
+    --good:#22c55e; --good-bg:#173a24;
+    --warn:#f59e0b; --warn-bg:#3d2f0e;
+    --bad:#ef4444;  --bad-bg:#40191a;
+    color-scheme:dark;
+  }
+}
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);-webkit-text-size-adjust:100%}
 body{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
@@ -35,6 +46,11 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 header{display:flex;align-items:baseline;justify-content:space-between}
 header h1{margin:0;font-size:20px;font-weight:900;letter-spacing:-0.02em}
 header .date{font-size:14px;color:var(--sub);font-weight:500}
+
+/* 홈 화면 추가 안내 */
+.tip{display:flex;align-items:flex-start;gap:10px;padding:14px;border-radius:14px;background:var(--soft);font-size:14px;line-height:1.6}
+.tip span{flex:1}
+.tip b{font-weight:700}
 
 /* 오늘 */
 .today{display:flex;flex-direction:column;gap:14px}
@@ -60,10 +76,15 @@ header .date{font-size:14px;color:var(--sub);font-weight:500}
 .pill.focus{background:var(--good);color:#fff}
 .pill.away{background:var(--warn);color:#fff}
 .pill.sleepy{background:var(--bad);color:#fff}
+.pill.calib{background:var(--ink);color:var(--bg)}
+.pill.rest{background:var(--sub);color:#fff}
 .view.alert{box-shadow:inset 0 0 0 4px var(--bad)}
 .go{height:56px;border:none;border-radius:14px;background:var(--ink);color:var(--bg);font-size:17px;font-weight:700}
 .go.stop{background:var(--bg);color:var(--ink);border:2px solid var(--ink)}
 .go:disabled{opacity:.5}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sub{height:48px;border:1px solid var(--line);border-radius:14px;background:var(--bg);font-size:15px;font-weight:700}
+.sub.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .sound{display:flex;align-items:center;justify-content:space-between;height:48px;padding:0 14px;border:1px solid var(--line);border-radius:14px;background:var(--bg);font-size:15px;font-weight:700}
 .sound i{position:relative;width:46px;height:28px;border-radius:99px;background:var(--line);transition:background .2s}
 .sound i::after{content:"";position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:transform .2s}
@@ -71,7 +92,7 @@ header .date{font-size:14px;color:var(--sub);font-weight:500}
 .sound[aria-checked="true"] i::after{transform:translateX(18px)}
 .warnbox{position:absolute;left:12px;right:12px;bottom:12px;padding:14px;border-radius:12px;background:var(--bad);color:#fff;font-size:16px;font-weight:900;text-align:center;line-height:1.4}
 .warnbox.away{background:var(--warn)}
-@media (prefers-reduced-motion:no-preference){.warnbox{animation:blink 1s step-end infinite}}
+@media (prefers-reduced-motion:no-preference){.warnbox,.dim .dwarn{animation:blink 1s step-end infinite}}
 @keyframes blink{50%{opacity:.55}}
 .msg{font-size:13px;color:var(--bad);line-height:1.5;margin:0}
 .stats{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:14px}
@@ -80,6 +101,14 @@ header .date{font-size:14px;color:var(--sub);font-weight:500}
 .stats small{font-size:12px;color:var(--sub);font-weight:500}
 .stats b{font-size:17px;font-variant-numeric:tabular-nums}
 .note{font-size:12px;color:var(--sub);line-height:1.6;margin:0}
+
+/* 화면 어둡게: 감시는 계속하고 화면만 검게 */
+.dim{position:fixed;inset:0;z-index:30;background:#000;color:#555;border:none;border-radius:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;font-family:var(--font)}
+.dim .dclock{font-size:44px;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:-0.03em}
+.dim .dstate{font-size:15px;font-weight:700}
+.dim .dwarn{font-size:22px;font-weight:900;color:#f87171}
+.dim .dwarn.away{color:#fbbf24}
+.dim .dhint{position:absolute;bottom:calc(24px + env(safe-area-inset-bottom,0px));font-size:12px;color:#333}
 
 /* 달력 */
 .cal{display:flex;flex-direction:column;gap:12px}
@@ -105,7 +134,8 @@ button.day.g{background:var(--good-bg)} button.day.m{background:var(--warn-bg)} 
 .detail{border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:8px}
 .dtop{display:flex;align-items:center;justify-content:space-between}
 .dtop b{font-size:16px}
-.x{width:32px;height:32px;border:none;background:var(--soft);border-radius:8px;font-size:13px}
+.x{flex:none;width:32px;height:32px;border:none;background:var(--soft);border-radius:8px;font-size:13px}
+.tip .x{background:var(--bg)}
 .drow{display:flex;justify-content:space-between;font-size:14px;color:var(--sub)}
 .drow b{color:var(--ink);font-variant-numeric:tabular-nums}
 .del,.delall{height:44px;border-radius:12px;font-size:14px;font-weight:700}
@@ -116,7 +146,10 @@ button.day.g{background:var(--good-bg)} button.day.m{background:var(--warn-bg)} 
 .legend span{display:flex;align-items:center;gap:5px}
 .legend i{width:12px;height:12px;border-radius:4px;display:inline-block}
 
-.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:12px;font-size:14px;font-weight:500;max-width:calc(100% - 32px);text-align:center;z-index:20}
+/* 백업 */
+.backup{display:flex;flex-direction:column;gap:8px}
+
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:12px;font-size:14px;font-weight:500;max-width:calc(100% - 32px);text-align:center;z-index:40}
 @media (prefers-reduced-motion:reduce){.bar>i{transition:none}}
 </style>
 </head>
@@ -126,6 +159,11 @@ button.day.g{background:var(--good-bg)} button.day.m{background:var(--warn-bg)} 
     <h1>공부 감시</h1>
     <span class="date" id="date"></span>
   </header>
+
+  <div class="tip" id="tip" hidden>
+    <span><b>홈 화면에 추가해서 쓰세요.</b> 사파리 탭에서는 오래 안 들어가면 기록이 지워질 수 있어요. 공유 버튼 › <b>홈 화면에 추가</b></span>
+    <button class="x" id="tipX" aria-label="안내 닫기">✕</button>
+  </div>
 
   <section class="today">
     <span class="label">오늘 인증된 공부 시간</span>
@@ -149,6 +187,10 @@ button.day.g{background:var(--good-bg)} button.day.m{background:var(--warn-bg)} 
       <div class="warnbox" id="warnbox" role="alert" hidden></div>
     </div>
     <button class="go" id="go">감시 시작</button>
+    <div class="row" id="ctl" hidden>
+      <button class="sub" id="rest">휴식</button>
+      <button class="sub" id="dimBtn">화면 어둡게</button>
+    </div>
     <button class="sound" id="sound" role="switch" aria-checked="true"><span>경고음</span><i></i></button>
     <p class="msg" id="msg" hidden></p>
     <div class="stats">
@@ -156,7 +198,7 @@ button.day.g{background:var(--good-bg)} button.day.m{background:var(--warn-bg)} 
       <div><small>자리 비움·딴 앱</small><b id="sAway">0:00</b></div>
       <div><small>졸음</small><b id="sSleep">0:00</b></div>
     </div>
-    <p class="note">얼굴이 보이고 눈을 뜨고 있는 시간만 기록돼요. 2초 넘게 자리를 비우거나, 4초 넘게 눈을 감거나, 다른 앱으로 나가면 그 시간은 빠져요. 영상은 저장되지 않고 이 폰 안에서만 분석돼요. 오래 쓸 땐 충전기를 꽂아 두세요.</p>
+    <p class="note">얼굴이 보이고 눈을 뜨고 있는 시간만 기록돼요. 시작하면 3초 동안 평소 공부 자세를 기준으로 맞추니, 책을 보는 자세로 앉아 있어 주세요. 2초 넘게 자리를 비우거나, 6초 넘게 눈을 감거나, 다른 앱으로 나가면 그 시간은 빠져요. 쉴 땐 휴식을 누르면 경고 없이 멈춰요. 영상은 저장되지 않고 이 폰 안에서만 분석돼요. 오래 쓸 땐 충전기를 꽂아 두세요.</p>
   </section>
 
   <section class="cal">
@@ -168,6 +210,11 @@ button.day.g{background:var(--good-bg)} button.day.m{background:var(--warn-bg)} 
       </div>
     </div>
     <div class="streak" id="streak"></div>
+    <div class="stats">
+      <div><small>이번 주</small><b id="cWeek">0:00</b></div>
+      <div><small id="cMonthLabel">이 달 합계</small><b id="cMonth">0:00</b></div>
+      <div><small>공부한 날 평균</small><b id="cAvg">0:00</b></div>
+    </div>
     <div class="grid" id="grid"></div>
     <div class="legend">
       <span><i style="background:var(--good-bg)"></i>목표 달성</span>
@@ -181,15 +228,32 @@ button.day.g{background:var(--good-bg)} button.day.m{background:var(--warn-bg)} 
       <div class="drow"><span>졸음</span><b id="dSleep"></b></div>
       <button class="del" id="dDel">이 날 기록 지우기</button>
     </div>
+    <div class="backup">
+      <span class="label">기록 백업</span>
+      <div class="row">
+        <button class="sub" id="exp">내보내기</button>
+        <button class="sub" id="imp">가져오기</button>
+      </div>
+      <input type="file" id="impFile" accept="application/json,.json" hidden>
+    </div>
     <button class="delall" id="delAll">전체 기록 지우기</button>
   </section>
 </div>
+<button class="dim" id="dim" hidden aria-label="화면 밝게 돌아가기">
+  <span class="dclock" id="dimClock">0:00:00</span>
+  <span class="dstate" id="dimState"></span>
+  <span class="dwarn" id="dimWarn" hidden></span>
+  <span class="dhint">화면을 누르면 돌아와요</span>
+</button>
 <div class="toast" id="toast" hidden></div>
 
 <script type="module">
 const LIB = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
 const MODEL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
 const KEY = "studycam-v1";
+const CAM = { video:{ facingMode:"user", width:{ideal:640}, height:{ideal:480} }, audio:false };
+const DETECT_MS = 333;   // 초당 3번 분석: 배터리·발열 절약
+const AWAY_SEC = 2, AWAY_ALARM_SEC = 15, CLOSE_SEC = 6, CALIB_SEC = 3;
 const $ = id => document.getElementById(id);
 
 /* ---------- 저장 ---------- */
@@ -207,6 +271,14 @@ function today(){
   if(!store.days[k]) store.days[k] = { sec:0, away:0, sleepy:0, goal:store.goalMin };
   return store.days[k];
 }
+/* 브라우저가 저장소를 함부로 비우지 않게 요청 */
+try{ navigator.storage && navigator.storage.persist && navigator.storage.persist(); }catch(e){}
+
+/* ---------- 홈 화면 추가 안내 ---------- */
+const standalone = navigator.standalone || matchMedia("(display-mode: standalone)").matches;
+const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+$("tip").hidden = !(ios && !standalone && !store.hideTip);
+$("tipX").onclick = () => { store.hideTip = true; save(); $("tip").hidden = true; };
 
 /* ---------- 표시 ---------- */
 const hms = s => { s = Math.floor(s); return Math.floor(s/3600)+":"+String(Math.floor(s/60)%60).padStart(2,"0")+":"+String(s%60).padStart(2,"0"); };
@@ -225,6 +297,7 @@ function renderToday(){
   const left = d.goal*60 - d.sec;
   $("goaltxt").innerHTML = left > 0 ? "목표까지 <b>"+hm(left)+"</b> 남음" : "<b>오늘 목표 달성!</b>";
   $("goalval").textContent = goalLabel(d.goal);
+  renderDim();
 }
 let sess = { sec:0, away:0, sleepy:0 };
 function renderSess(){
@@ -237,6 +310,7 @@ function changeGoal(delta){
   const g = Math.max(30, Math.min(720, today().goal + delta));
   store.goalMin = g; today().goal = g;
   save(); renderToday(); renderCal();
+  toast("오늘부터 목표 "+goalLabel(g)+" · 지난 기록은 그대로예요");
 }
 $("gminus").onclick = () => changeGoal(-30);
 $("gplus").onclick  = () => changeGoal(30);
@@ -254,11 +328,26 @@ function streak(){
   while(cls(store.days[dkey(d)]) === "g"){ n++; d.setDate(d.getDate()-1); }
   return n;
 }
+/* from~to 사이 인증 시간 합계와 공부한 날 수 */
+function sumDays(from, to){
+  let sec = 0, n = 0;
+  for(const d = new Date(from); d <= to; d.setDate(d.getDate()+1)){
+    const r = store.days[dkey(d)];
+    if(r && r.sec >= 60){ sec += r.sec; n++; }
+  }
+  return { sec, n };
+}
 function renderCal(){
   const y = calMonth.getFullYear(), m = calMonth.getMonth();
   $("calTitle").textContent = y+"년 "+(m+1)+"월";
   const n = streak();
   $("streak").innerHTML = n ? "연속 목표 달성 <b>"+n+"일</b>" : "연속 기록이 없어요. 오늘부터 시작!";
+  const now = new Date(), weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+  const mon = sumDays(new Date(y, m, 1), new Date(y, m+1, 0));
+  $("cWeek").textContent = hm(sumDays(weekStart, now).sec);
+  $("cMonthLabel").textContent = (m+1)+"월 합계";
+  $("cMonth").textContent = hm(mon.sec);
+  $("cAvg").textContent = hm(mon.n ? mon.sec/mon.n : 0);
   const g = $("grid"); g.innerHTML = "";
   "일월화수목금토".split("").forEach(c => { const e = document.createElement("div"); e.className = "dow"; e.textContent = c; g.appendChild(e); });
   const first = new Date(y, m, 1).getDay(), days = new Date(y, m+1, 0).getDate(), tk = dkey();
@@ -315,6 +404,42 @@ $("delAll").onclick = () => twoTap($("delAll"), "전체 기록 지우기", () =>
 $("prev").onclick = () => { calMonth.setMonth(calMonth.getMonth()-1); renderCal(); };
 $("next").onclick = () => { calMonth.setMonth(calMonth.getMonth()+1); renderCal(); };
 
+/* ---------- 백업 ---------- */
+$("exp").onclick = async () => {
+  save();
+  const name = "studycam-backup-"+dkey()+".json";
+  const blob = new Blob([JSON.stringify(store)], { type:"application/json" });
+  const file = new File([blob], name, { type:"application/json" });
+  if(navigator.canShare && navigator.canShare({ files:[file] })){
+    try{ await navigator.share({ files:[file] }); }catch(e){}
+    return;
+  }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+$("imp").onclick = () => $("impFile").click();
+$("impFile").onchange = async e => {
+  const f = e.target.files[0]; e.target.value = "";
+  if(!f) return;
+  let data;
+  try{ data = JSON.parse(await f.text()); }catch(err){ data = null; }
+  if(!data || typeof data.days !== "object"){ toast("백업 파일이 아니에요"); return; }
+  /* 날짜마다 인증 시간이 더 긴 쪽을 남겨요 */
+  const num = v => Math.max(0, Number(v) || 0);
+  let n = 0;
+  for(const [k, r] of Object.entries(data.days)){
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(k) || !r) continue;
+    const cur = store.days[k];
+    if(cur && cur.sec >= num(r.sec)) continue;
+    const rec = { sec:num(r.sec), away:num(r.away), sleepy:num(r.sleepy), goal:Math.max(30, Math.min(720, num(r.goal) || store.goalMin)) };
+    if(cur) Object.assign(cur, rec); else store.days[k] = rec;
+    n++;
+  }
+  save(); renderToday(); renderCal();
+  toast(n ? n+"일치 기록을 가져왔어요" : "새로 가져올 기록이 없어요");
+};
+
 /* ---------- 알림 ---------- */
 let toastT;
 function toast(t){
@@ -329,12 +454,14 @@ $("sound").onclick = () => {
   toast(store.sound ? "경고음 켜짐" : "경고음 꺼짐 — 경고창만 떠요");
 };
 renderSound();
+const WARN_TEXT = { sleepy:"졸고 있어요! 눈 떠요", away:"자리로 돌아오세요" };
+let alarmKind = "";
 function warn(kind){
+  alarmKind = kind;
   const w = $("warnbox");
-  if(!kind){ w.hidden = true; return; }
-  w.hidden = false;
-  w.className = "warnbox " + kind;
-  w.textContent = kind === "sleepy" ? "졸고 있어요! 눈 떠요" : "자리로 돌아오세요";
+  w.hidden = !kind;
+  if(kind){ w.className = "warnbox " + kind; w.textContent = WARN_TEXT[kind]; }
+  renderDim();
 }
 function beep(strong){
   if(!audio || !store.sound) return;
@@ -352,10 +479,12 @@ function beep(strong){
 
 /* ---------- 감시 ---------- */
 const video = $("video");
-let landmarker = null, stream = null, wakeLock = null, running = false;
+let landmarker = null, stream = null, wakeLock = null, running = false, resting = false;
 let state = "idle", awayRun = 0, closedRun = 0, lastT = 0, lastDetect = 0, lastBeep = 0, saveAcc = 0, hiddenAt = 0;
+/* 눈 감김 기준: 시작할 때 평소 공부 자세(책을 내려다보는 눈)를 재서 정해요 */
+let calib = null, closeThr = 0.55;
 
-const STATE_TEXT = { focus:"집중 중", away:"자리 비움", sleepy:"졸음 감지!", loading:"AI 준비 중…" };
+const STATE_TEXT = { focus:"집중 중", away:"자리 비움", sleepy:"졸음 감지!", loading:"AI 준비 중…", calib:"자세 맞추는 중…", rest:"휴식 중" };
 function setState(s){
   if(state === s) return;
   state = s;
@@ -364,6 +493,7 @@ function setState(s){
   p.className = "pill " + s;
   p.textContent = STATE_TEXT[s] || "";
   $("view").classList.toggle("alert", s === "sleepy");
+  renderDim();
 }
 function showMsg(t){ const e = $("msg"); e.textContent = t; e.hidden = !t; }
 
@@ -379,6 +509,21 @@ async function getLandmarker(){
 async function lockScreen(){
   try{ if("wakeLock" in navigator) wakeLock = await navigator.wakeLock.request("screen"); }catch(e){}
 }
+async function openCamera(){
+  stream = await navigator.mediaDevices.getUserMedia(CAM);
+  stream.getVideoTracks().forEach(t => t.addEventListener("ended", ensureCamera));
+  video.srcObject = stream;
+  await video.play();
+}
+/* 다른 앱에 갔다 오면 iOS가 카메라를 끊거나 멈출 수 있어서 다시 이어요 */
+async function ensureCamera(){
+  if(!running) return;
+  const t = stream && stream.getVideoTracks()[0];
+  try{
+    if(!t || t.readyState === "ended"){ await openCamera(); showMsg(""); }
+    else if(video.paused) await video.play();
+  }catch(e){ showMsg("카메라가 끊겼어요. 감시 종료 후 다시 시작해 주세요."); }
+}
 
 async function start(){
   const btn = $("go");
@@ -389,9 +534,7 @@ async function start(){
   }catch(e){}
   try{
     if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw { name:"NoMedia" };
-    stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:"user", width:{ideal:640}, height:{ideal:480} }, audio:false });
-    video.srcObject = stream;
-    await video.play();
+    await openCamera();
     $("ph").hidden = true;
     setState("loading");
     await getLandmarker();
@@ -405,10 +548,12 @@ async function start(){
       showMsg("AI를 불러오지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.");
     return;
   }
-  running = true; sess = { sec:0, away:0, sleepy:0 };
+  running = true; resting = false; sess = { sec:0, away:0, sleepy:0 };
   awayRun = closedRun = 0; lastT = lastDetect = performance.now();
+  calib = { t:0, vals:[] };
   await lockScreen();
   btn.disabled = false; btn.textContent = "감시 종료"; btn.classList.add("stop");
+  $("ctl").hidden = false; renderRest();
   renderSess();
   requestAnimationFrame(loop);
 }
@@ -417,65 +562,112 @@ function stopCamera(){
   video.srcObject = null; $("ph").hidden = false;
 }
 function stop(){
-  running = false; stopCamera(); setState("idle"); warn("");
+  running = false; resting = false; calib = null;
+  stopCamera(); setState("idle"); warn(""); setDim(false);
   try{ wakeLock && wakeLock.release(); }catch(e){} wakeLock = null;
   save(); renderToday(); renderCal();
   const b = $("go"); b.textContent = "감시 시작"; b.classList.remove("stop");
+  $("ctl").hidden = true;
   if(sess.sec >= 60) toast("이번 세션 "+hm(sess.sec)+" 인증 완료");
 }
 $("go").onclick = () => running ? stop() : start();
 
+/* 휴식: 경고 없이 멈추고, 그동안은 어떤 시간도 쌓지 않아요 */
+function renderRest(){
+  const b = $("rest");
+  b.textContent = resting ? "휴식 끝내기" : "휴식";
+  b.classList.toggle("on", resting);
+}
+$("rest").onclick = () => {
+  if(!running) return;
+  resting = !resting;
+  awayRun = closedRun = 0; lastT = performance.now();
+  if(resting){ warn(""); setState("rest"); save(); }
+  else{ setState(calib ? "calib" : "focus"); ensureCamera(); }
+  renderRest();
+};
+
+/* 화면 어둡게: 감시는 그대로, 화면만 검게 */
+function setDim(on){ $("dim").hidden = !on; renderDim(); }
+function renderDim(){
+  if($("dim").hidden) return;
+  $("dimClock").textContent = hms(today().sec);
+  $("dimState").textContent = STATE_TEXT[state] || "";
+  const w = $("dimWarn");
+  w.hidden = !alarmKind;
+  if(alarmKind){ w.className = "dwarn " + alarmKind; w.textContent = WARN_TEXT[alarmKind]; }
+}
+$("dimBtn").onclick = () => setDim(true);
+$("dim").onclick = () => setDim(false);
+
 function loop(){
   if(!running) return;
   const now = performance.now();
-  if(now - lastDetect >= 200 && video.readyState >= 2){
+  if(resting){ lastT = now; requestAnimationFrame(loop); return; }
+  if(now - lastDetect >= DETECT_MS && video.readyState >= 2){
     lastDetect = now;
-    let face = false, closed = false;
+    let face = false, blink = 0, down = 0;
     try{
       const r = landmarker.detectForVideo(video, now);
       face = !!(r.faceLandmarks && r.faceLandmarks.length);
       const bs = r.faceBlendshapes && r.faceBlendshapes[0];
       if(face && bs){
         const get = n => { const c = bs.categories.find(o => o.categoryName === n); return c ? c.score : 0; };
-        closed = (get("eyeBlinkLeft") + get("eyeBlinkRight"))/2 > 0.5;
+        blink = (get("eyeBlinkLeft") + get("eyeBlinkRight"))/2;
+        down  = (get("eyeLookDownLeft") + get("eyeLookDownRight"))/2;
       }
     }catch(e){}
     const dt = Math.min((now - lastT)/1000, 1); lastT = now;
-    tick(dt, face, closed, now);
+    tick(dt, face, blink, down, now);
   }
   requestAnimationFrame(loop);
 }
-function tick(dt, face, closed, now){
+function finishCalib(){
+  const v = calib.vals, base = v.reduce((a, b) => a + b, 0) / v.length;
+  closeThr = Math.max(0.55, Math.min(0.85, base + 0.3));
+  calib = null;
+  toast("자세를 맞췄어요. 감시를 시작해요");
+}
+function tick(dt, face, blink, down, now){
   if(!face){ awayRun += dt; closedRun = 0; }
-  else { awayRun = 0; closedRun = closed ? closedRun + dt : 0; }
-  const s = awayRun > 2 ? "away" : closedRun > 4 ? "sleepy" : "focus";
+  else{
+    awayRun = 0;
+    if(calib){ calib.vals.push(blink); calib.t += dt; if(calib.t >= CALIB_SEC) finishCalib(); }
+    /* 책을 내려다보면 눈꺼풀이 내려와요: 아래를 보는 중엔 확실히 감았을 때만 졸음으로 */
+    const closed = !calib && blink > closeThr && !(down > 0.35 && blink < 0.85);
+    closedRun = closed ? closedRun + dt : 0;
+  }
+  const s = awayRun > AWAY_SEC ? "away" : closedRun > CLOSE_SEC ? "sleepy" : calib ? "calib" : "focus";
   const d = today();
-  if(s === "focus"){ d.sec += dt; sess.sec += dt; }
-  else if(s === "away"){ d.away += dt; sess.away += dt; }
-  else { d.sleepy += dt; sess.sleepy += dt; }
+  if(s === "away"){ d.away += dt; sess.away += dt; }
+  else if(s === "sleepy"){ d.sleepy += dt; sess.sleepy += dt; }
+  else { d.sec += dt; sess.sec += dt; }
   setState(s);
-  const alarm = s === "sleepy" ? "sleepy" : (s === "away" && awayRun > 15) ? "away" : "";
+  const alarm = s === "sleepy" ? "sleepy" : (s === "away" && awayRun > AWAY_ALARM_SEC) ? "away" : "";
   warn(alarm);
   if(alarm && now - lastBeep > 1500){ beep(alarm === "sleepy"); lastBeep = now; }
   saveAcc += dt; if(saveAcc > 5){ save(); saveAcc = 0; }
   renderToday(); renderSess();
 }
 
-/* 다른 앱으로 나가면 그 시간은 자리 비움으로 */
+/* 다른 앱으로 나가면 그 시간은 자리 비움으로 (휴식 중엔 빼지 않아요) */
 document.addEventListener("visibilitychange", () => {
   if(!running) return;
   if(document.hidden){ hiddenAt = Date.now(); save(); }
   else{
     const gone = (Date.now() - hiddenAt)/1000;
-    if(hiddenAt && gone > 1){
+    if(hiddenAt && gone > 1 && !resting){
       today().away += gone; sess.away += gone; save();
       toast("다른 앱 사용 "+ms(gone)+" — 기록에서 뺐어요");
     }
     hiddenAt = 0; lastT = performance.now();
-    lockScreen(); renderSess();
+    lockScreen(); ensureCamera(); renderToday(); renderSess();
   }
 });
 window.addEventListener("pagehide", save);
+
+/* AI 파일을 폰에 저장해 두고 다음부터 빠르게 시작 */
+if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 
 renderToday(); renderCal(); renderSess();
 setInterval(() => { if(!running){ renderToday(); } }, 60000);
