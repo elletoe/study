@@ -1010,7 +1010,7 @@ function showInput(it) {
   const nBox = Math.max(it.kind === 'd' ? 36 : it.kind === 'k' ? 4 : 18, Math.max(...targets.map(t => Array.from(t).length), 1) + 1);
   const pad = $('#pad'), cv = $('#cv'), ctx = cv.getContext('2d');
   const strokes = [];
-  let cur = null, t0 = 0, box = 84, cols = 1;
+  let cur = null, t0 = 0, box = 84, cols = 1, grid = null, ink = '#111', inkW = 4;
   const layout = () => {
     const W = pad.clientWidth;
     cols = Math.max(1, Math.floor(W / 84));
@@ -1018,11 +1018,16 @@ function showInput(it) {
     pad.style.height = Math.ceil(nBox / cols) * box + 'px';
     const dpr = window.devicePixelRatio || 1;
     cv.width = W * dpr; cv.height = Math.ceil(nBox / cols) * box * dpr;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); redraw();
+    // 칸 그림은 한 번만 그려 두고(펜을 따라가기 빠르게), 획은 그 위에 그려요
+    grid = document.createElement('canvas'); grid.width = cv.width; grid.height = cv.height;
+    const g = grid.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawGrid(g);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ink = css('--ink'); inkW = Math.max(3, box / 22);
+    redraw();
   };
   const css = v => getComputedStyle(document.documentElement).getPropertyValue(v);
-  const redraw = () => {
-    ctx.clearRect(0, 0, cv.width, cv.height);
+  const drawGrid = ctx => {
     // 칸은 연한 바탕 + 회색 테두리로 또렷하게, 가운데 점선은 더 연하게
     for (let i = 0; i < nBox; i++) {
       const x = (i % cols) * box, y = Math.floor(i / cols) * box;
@@ -1033,34 +1038,60 @@ function showInput(it) {
       ctx.moveTo(x + 10, y + box / 2); ctx.lineTo(x + box - 10, y + box / 2); ctx.stroke();
       ctx.globalAlpha = 1;
     }
-    ctx.setLineDash([]); ctx.lineWidth = Math.max(3, box / 22); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    ctx.strokeStyle = css('--ink');
-    for (const s of strokes) { ctx.beginPath(); s.x.forEach((x, i) => i ? ctx.lineTo(x, s.y[i]) : ctx.moveTo(x, s.y[i])); ctx.stroke(); }
-    $('#ph').hidden = strokes.length > 0;
+  };
+  const setInk = () => { ctx.setLineDash([]); ctx.lineWidth = inkW; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = ink; };
+  const redraw = () => {
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
+    if (grid) ctx.drawImage(grid, 0, 0); ctx.restore();
+    setInk();
+    for (const s of strokes) { ctx.beginPath(); s.x.forEach((x, i) => i ? ctx.lineTo(x, s.y[i]) : ctx.moveTo(x, s.y[i])); if (s.x.length === 1) ctx.lineTo(s.x[0] + 0.1, s.y[0]); ctx.stroke(); }
+  };
+  // 새로 들어온 점만 이어 그려요 (매번 전체를 다시 그리면 펜을 못 따라가요)
+  const drawTail = (s, from) => {
+    setInk(); ctx.beginPath();
+    ctx.moveTo(s.x[Math.max(0, from - 1)], s.y[Math.max(0, from - 1)]);
+    for (let i = from; i < s.x.length; i++) ctx.lineTo(s.x[i], s.y[i]);
+    if (s.x.length === 1) ctx.lineTo(s.x[0] + 0.1, s.y[0]);
+    ctx.stroke();
   };
   layout();
   const pos = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
   // 펜슬(과 테스트용 마우스)로만 써져요. 손가락·손바닥은 무시
-  cv.addEventListener('pointerdown', e => {
-    if (e.pointerType === 'touch' || cur) return;
+  const startStroke = e => {
     e.preventDefault();
     try { cv.setPointerCapture(e.pointerId); } catch {}
     penDown = true;
     if (!t0) t0 = Date.now();
     const [x, y] = pos(e);
     cur = { x: [x], y: [y], t: [Date.now() - t0], id: e.pointerId };
-    strokes.push(cur); redraw();
+    strokes.push(cur); drawTail(cur, 0);
+  };
+  cv.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'touch') return;
+    // 앞 획이 끝났다는 신호를 놓쳤어도 새 획은 바로 시작해요 (예전엔 여기서 막혀서 글씨가 안 써졌어요)
+    cur = null;
+    startStroke(e);
   });
   cv.addEventListener('pointermove', e => {
-    if (!cur || e.pointerId !== cur.id) return;
+    if (e.pointerType === 'touch') return;
+    // 시작 신호(pointerdown)를 놓쳤어도 펜이 닿아 있으면(buttons) 그때부터 그려요
+    if (!cur || e.pointerId !== cur.id) { if (e.buttons & 1) startStroke(e); return; }
+    if (!(e.buttons & 1) && e.pointerType === 'pen') return;   // 펜을 띄운 채 움직이는 건(호버) 무시
+    const from = cur.x.length;
     for (const p of e.getCoalescedEvents ? e.getCoalescedEvents() : [e]) { const [x, y] = pos(p); cur.x.push(x); cur.y.push(y); cur.t.push(Date.now() - t0); }
-    redraw();
+    drawTail(cur, from);
+    $('#ph').hidden = true;
   });
   const endStroke = e => {
     if (!cur || e.pointerId !== cur.id) return;
     cur = null; penDown = false; penUntil = Date.now() + 600;
   };
-  cv.addEventListener('pointerup', endStroke); cv.addEventListener('pointercancel', endStroke);
+  for (const t of ['pointerup', 'pointercancel', 'lostpointercapture']) cv.addEventListener(t, endStroke);
+  // 칸 밖에서 펜을 떼도 획이 끝나게
+  if (penUpHandler) window.removeEventListener('pointerup', penUpHandler);
+  penUpHandler = endStroke; window.addEventListener('pointerup', penUpHandler);
+  // 사파리가 펜 입력을 손글씨 입력(Scribble)·돋보기·스크롤로 가로채지 않게 막아요
+  for (const t of ['touchstart', 'touchmove', 'touchend']) cv.addEventListener(t, e => e.preventDefault(), { passive: false });
   $('#pUndo').onclick = () => { strokes.pop(); redraw(); };
   $('#pClear').onclick = () => { strokes.length = 0; t0 = 0; redraw(); };
   $('#pIdk').onclick = () => judge(false, null);
@@ -1094,7 +1125,7 @@ function showInput(it) {
 let keyHandler = null;
 
 /* 펜슬로 쓰는 동안(과 뗀 직후 잠깐)은 손이 닿아도 아무것도 눌리거나 움직이지 않게 막아요 */
-let penDown = false, penUntil = 0;
+let penDown = false, penUntil = 0, penUpHandler = null;
 const penBusy = () => penDown || Date.now() < penUntil;
 for (const t of ['pointerdown', 'pointerup', 'click']) {
   document.addEventListener(t, e => {
