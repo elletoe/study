@@ -363,6 +363,9 @@ for (const L of LESSONS) {
   (L.dialogues || []).forEach((d, di) => {
     let prev = null;
     d.lines.forEach((ln, li) => {
+      // A/B로 된 짧은 대화 모음은 A가 말을 꺼낼 때마다 새 대화예요 (A/B ↔ 이름 있는 대화로 바뀔 때도)
+      const ab = w => w === 'A' || w === 'B';
+      if (ln.who === 'A' || (prev && ab(prev.who) !== ab(ln.who))) prev = null;
       const it = { id: `d${L.no}:${di}:${li}`, kind: 'd', lesson: L.no, dlg: d.title || `대화 ${di + 1}`, who: ln.who || '', ja: ln.ja, kana: ln.kana || '', ko: [].concat(ln.ko || []), prev };
       ITEMS.push(it);
       prev = it;
@@ -746,7 +749,9 @@ function face(it) {
   return S.dir === 'jk' ? { q: jaSide, a: ansKo } : { q: koSide, a: ansJa };
 }
 function cardTop(it) {
-  const ctx = it.kind === 'd' && it.prev ? `<div class="ctx jp">${esc(it.prev.who ? it.prev.who + ': ' : '')}${esc(it.prev.ja)}</div>` : '';
+  // 앞 대사는 문제와 같은 말로 보여 줘요 (한→일일 때 일본어가 힌트가 되지 않게)
+  const p = it.kind === 'd' && it.prev, pk = S.dir === 'kj';
+  const ctx = p ? `<div class="ctx${pk ? '' : ' jp'}">${esc(p.who ? p.who + ': ' : '')}${esc(pk ? p.ko.join(' / ') : p.ja)}</div>` : '';
   const who = it.kind === 'd' && it.who ? `<div class="who jp">${esc(it.who)}</div>` : '';
   return `<div class="corner l"><span class="badge">${esc(lessonLabel(it.lesson))}${it.kind === 'd' ? ' · ' + esc(it.dlg) : ''}</span>${isWeak(it.id) ? '<span class="badge red">약한 것</span>' : ''}</div>
     <div class="corner r"><button class="say" data-act="say" aria-label="발음 듣기">🔊</button><button class="star" data-act="star" aria-pressed="${isStar(it.id)}" aria-label="별표">★</button></div>
