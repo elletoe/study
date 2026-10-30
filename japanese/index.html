@@ -136,7 +136,6 @@ header h1{margin:0;font-size:24px;font-weight:900;letter-spacing:-0.02em}
 .item .ja{font-size:20px;font-weight:700}
 .item .kana{font-size:13px;color:var(--sub)}
 .item .ko{font-size:15px;margin-top:2px}
-.item .why{font-size:12px;color:var(--warn);font-weight:700;margin-top:4px}
 .item .cnt{font-size:13px;color:var(--sub);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .item .cnt b{color:var(--bad)}
 .star{width:44px;height:44px;border:none;background:transparent;font-size:24px;color:var(--line);line-height:1}
@@ -183,15 +182,14 @@ header h1{margin:0;font-size:24px;font-weight:900;letter-spacing:-0.02em}
 .padbar button{height:52px;border-radius:14px;border:1px solid var(--line);background:var(--bg);font-size:16px;font-weight:700}
 .padbar .ok{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .res{padding:16px 18px;border-radius:18px;display:flex;flex-direction:column;gap:6px}
-.res b{font-size:24px;font-weight:900}
+.res .lbl{font-size:15px;font-weight:700}
+.res .main{font-size:clamp(34px,5.5vw,56px);font-weight:900;line-height:1.3;color:var(--ink);overflow-wrap:anywhere}
+.res .main.long{font-size:clamp(22px,3.4vw,34px)}
+.res .reading{font-size:20px;color:var(--ink);opacity:.75}
 .res span{font-size:15px;line-height:1.6}
 .res.ok{background:var(--good-bg);color:var(--good-ink)}
 .res.bad{background:var(--bad-bg);color:var(--bad)}
 .res .heard{color:var(--sub)}
-.why{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-.why>span{font-size:14px;font-weight:700;color:var(--sub);margin-right:4px}
-.why button{min-height:38px;padding:0 14px;border:1px solid var(--line);border-radius:99px;background:var(--bg);font-size:14px;font-weight:700}
-.why button[aria-pressed="true"]{background:var(--warn);border-color:var(--warn);color:#fff}
 .done{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center}
 .done .num{font-size:72px;font-weight:900;line-height:1}
 .done p{margin:0;font-size:16px;color:var(--sub);line-height:1.7}
@@ -385,7 +383,7 @@ DB.settings = Object.assign({}, DEF, DB.settings);
 DB.stats = DB.stats || {};
 const S = DB.settings;
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch {} };
-const st = id => DB.stats[id] || (DB.stats[id] = { ok: 0, bad: 0, streak: 0, lastBad: false, star: false, why: {} });
+const st = id => DB.stats[id] || (DB.stats[id] = { ok: 0, bad: 0, streak: 0, lastBad: false, star: false });
 
 /* 약한 것: 3번 연속 맞히기 전까지, 바로 전에 틀렸거나 · 몰라요 2번 이상이거나 · 정답률 60% 미만 */
 function isWeak(id) {
@@ -596,16 +594,15 @@ $('#readKana').onclick = () => { readKana = !readKana; renderRead(); };
 /* ---------- 약한 것 목록 ---------- */
 let weakView = 'weak';
 $('#weakSeg').querySelectorAll('button').forEach(b => b.onclick = () => { weakView = b.dataset.v; renderWeak(); });
-const WHY = { read: '읽는 법', mean: '뜻', alike: '비슷한 것과 헷갈림' };
 function renderWeak() {
   segShow($('#weakSeg'), weakView);
   let list = ITEMS.filter(i => weakView === 'weak' ? isWeak(i.id) : weakView === 'star' ? isStar(i.id) : (DB.stats[i.id]?.bad || 0) > 0);
   list.sort((a, b) => (DB.stats[b.id]?.bad || 0) - (DB.stats[a.id]?.bad || 0));
   if (!list.length) { $('#weakBody').innerHTML = `<p class="empty">${weakView === 'star' ? '별표한 게 없어요. 공부할 때 카드의 ☆를 누르면 여기 모여요.' : '아직 없어요. 잘하고 있어요!'}</p>`; return; }
   $('#weakBody').innerHTML = `<button class="go" id="weakGo" style="margin-bottom:16px">이 ${list.length}개 외우기</button><div class="list">` + list.map(it => {
-    const s = DB.stats[it.id] || {}, why = Object.entries(s.why || {}).filter(([, n]) => n).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${WHY[k]} ${n}`).join(' · ');
+    const s = DB.stats[it.id] || {};
     return `<div class="item"><div><div class="ja jp">${esc(it.ja)}</div>${it.kana ? `<div class="kana jp">${esc(it.kana)}</div>` : ''}
-      <div class="ko">${esc(it.ko.join(' / '))}</div><div class="hint">${esc(lessonName(it.lesson))}${it.kind === 'd' ? ' · 다이얼로그' : ''}</div>${why ? `<div class="why">${esc(why)}</div>` : ''}</div>
+      <div class="ko">${esc(it.ko.join(' / '))}</div><div class="hint">${esc(lessonName(it.lesson))}${it.kind === 'd' ? ' · 다이얼로그' : ''}</div></div>
       <div class="cnt">틀림 <b>${s.bad || 0}</b><br>맞음 ${s.ok || 0}</div>
       <button class="star" data-id="${esc(it.id)}" aria-pressed="${isStar(it.id)}" aria-label="별표">★</button></div>`;
   }).join('') + '</div>';
@@ -844,19 +841,18 @@ function showInput(it) {
     // 결과 보여 주고, 다음으로. 인식이 틀렸을 수도 있으니 "맞게 썼어요"로 바꿀 수 있어요
     $('#inArea').hidden = true;
     let final = ok;
-    const why = {};
+    // 정답 단어를 크게, 맞았는지는 작게
+    const main = toJa ? it.ja : it.ko.join(' / ');
+    const reading = toJa && it.kana && it.kana !== it.ja ? it.kana : '';
+    const long = it.kind === 'd' ? ' long' : '';
     const draw = () => {
       $('#resArea').innerHTML = `<div class="ans">
-        <div class="res ${final ? 'ok' : 'bad'}"><b>${final ? '정답!' : maybe ? '확인해 주세요' : '틀렸어요'}</b>
-          <span>${f.a.replace(/<\/?b[^>]*>/g, '').replace(/<span[^>]*>/g, ' · ').replace(/<\/span>/g, '')}</span>
+        <div class="res ${final ? 'ok' : 'bad'}"><span class="lbl">${final ? '정답!' : maybe ? '확인해 주세요' : '틀렸어요'}</span>
+          <div class="main${toJa ? ' jp' : ''}${long}">${esc(main)}</div>
+          ${reading ? `<div class="reading jp">${esc(reading)}</div>` : ''}
           ${heard != null ? `<span class="heard">${pen ? '인식한 글자' : '쓴 답'}: ${esc(heard || '(없음)')}</span>` : ''}</div>
-        ${!final ? `<div class="why"><span>왜 틀렸어요?</span>${Object.entries(WHY).map(([k, v]) => `<button data-why="${k}" aria-pressed="${!!why[k]}">${v}</button>`).join('')}</div>` : ''}
         <div class="two">${maybe || !final ? `<button class="go line" id="rFix">${maybe ? '맞았어요' : '사실 맞았어요'}</button>` : '<span></span>'}<button class="go" id="rNext">${maybe ? '틀렸어요' : '다음'}</button></div></div>`;
-      $('#resArea').querySelectorAll('[data-why]').forEach(b => b.onclick = () => { why[b.dataset.why] = !why[b.dataset.why]; draw(); });
-      const fin = () => {
-        if (!final) { const s = st(it.id); for (const k in why) if (why[k]) s.why[k] = (s.why[k] || 0) + 1; }
-        answer(it, final);
-      };
+      const fin = () => answer(it, final);
       $('#rNext').onclick = () => { if (maybe) final = false; fin(); };
       if ($('#rFix')) $('#rFix').onclick = () => { final = true; fin(); };
       if (final || maybe) $('#rNext').focus();
