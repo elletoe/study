@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="일본어">
@@ -49,6 +49,10 @@ try { const t = JSON.parse(localStorage.getItem('jp-v1') || '{}').settings?.them
 }
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);-webkit-text-size-adjust:100%}
+/* 확대 안 되게, 길게 눌러도 글자 선택(파란 블록)·메뉴가 안 뜨게 — 입력칸만 예외 */
+html{touch-action:manipulation}
+body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+input,textarea{-webkit-user-select:text;user-select:text}
 body{padding:env(safe-area-inset-top,0px) max(16px,env(safe-area-inset-right,0px)) env(safe-area-inset-bottom,0px) max(16px,env(safe-area-inset-left,0px))}
 [hidden]{display:none!important}
 button,input,select{font:inherit;color:inherit}
@@ -878,7 +882,7 @@ function showInput(it) {
   $('#stage').innerHTML = `
     <div class="cardwrap" style="flex:0 1 auto;min-height:180px"><div class="card${isWeak(it.id) ? ' weak' : ''}" id="card" style="touch-action:auto">${cardTop(it)}${f.q}</div></div>
     <div id="inArea">${pen ? `
-      <p class="hint">${toJa ? '일본어로' : '한국어 뜻을'} 한 칸에 한 글자씩 써 주세요. 칸이 남아도 괜찮아요.</p>
+      <p class="hint">애플펜슬로 한 칸에 한 글자씩 일본어를 써 주세요. 칸이 남아도 괜찮아요. 쓰는 동안 손이 닿아도 괜찮아요.</p>
       <div class="pad" id="pad"><canvas id="cv"></canvas><div class="ph" id="ph"></div></div>
       <div class="padbar"><button id="pUndo">한 획 취소</button><button id="pClear">지우기</button><button id="pIdk">모르겠어요</button><button class="ok" id="pOk">확인</button></div>` : `
       <div class="ans"><input id="tIn" ${toJa ? 'lang="ja" placeholder="일본어 (로마자로 쳐도 돼요)"' : 'lang="ko" placeholder="한국어 뜻"'} autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
@@ -959,19 +963,26 @@ function showInput(it) {
   };
   layout();
   const pos = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  // 펜슬(과 테스트용 마우스)로만 써져요. 손가락·손바닥은 무시
   cv.addEventListener('pointerdown', e => {
-    cv.setPointerCapture(e.pointerId);
+    if (e.pointerType === 'touch' || cur) return;
+    e.preventDefault();
+    try { cv.setPointerCapture(e.pointerId); } catch {}
+    penDown = true;
     if (!t0) t0 = Date.now();
     const [x, y] = pos(e);
-    cur = { x: [x], y: [y], t: [Date.now() - t0] };
+    cur = { x: [x], y: [y], t: [Date.now() - t0], id: e.pointerId };
     strokes.push(cur); redraw();
   });
   cv.addEventListener('pointermove', e => {
-    if (!cur) return;
+    if (!cur || e.pointerId !== cur.id) return;
     for (const p of e.getCoalescedEvents ? e.getCoalescedEvents() : [e]) { const [x, y] = pos(p); cur.x.push(x); cur.y.push(y); cur.t.push(Date.now() - t0); }
     redraw();
   });
-  const endStroke = () => { cur = null; };
+  const endStroke = e => {
+    if (!cur || e.pointerId !== cur.id) return;
+    cur = null; penDown = false; penUntil = Date.now() + 600;
+  };
   cv.addEventListener('pointerup', endStroke); cv.addEventListener('pointercancel', endStroke);
   $('#pUndo').onclick = () => { strokes.pop(); redraw(); };
   $('#pClear').onclick = () => { strokes.length = 0; t0 = 0; redraw(); };
@@ -1004,6 +1015,18 @@ function showInput(it) {
 
 /* 아이패드 키보드 단축키 */
 let keyHandler = null;
+
+/* 펜슬로 쓰는 동안(과 뗀 직후 잠깐)은 손이 닿아도 아무것도 눌리거나 움직이지 않게 막아요 */
+let penDown = false, penUntil = 0;
+const penBusy = () => penDown || Date.now() < penUntil;
+for (const t of ['pointerdown', 'pointerup', 'click']) {
+  document.addEventListener(t, e => {
+    if (penBusy() && (e.pointerType === 'touch' || (t === 'click' && !e.pointerType && e.detail))) { e.preventDefault(); e.stopPropagation(); }
+  }, true);
+}
+for (const t of ['touchstart', 'touchmove']) document.addEventListener(t, e => { if (penBusy() && e.touches.length && [...e.touches].every(x => x.touchType !== 'stylus')) e.preventDefault(); }, { passive: false, capture: true });
+// 두 손가락으로 벌려 확대하는 것도 막아요 (iPad 사파리는 user-scalable=no를 무시해서)
+document.addEventListener('gesturestart', e => e.preventDefault());
 document.addEventListener('keydown', e => { if (SES && keyHandler) keyHandler(e); });
 
 render();
