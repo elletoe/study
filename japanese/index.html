@@ -148,7 +148,7 @@ header h1{margin:0;font-size:24px;font-weight:900;letter-spacing:-0.02em}
 .stop .prog{flex:1;height:8px;background:var(--soft);border-radius:99px;overflow:hidden}
 .stop .prog i{display:block;height:100%;background:var(--ink);border-radius:99px;transition:width .2s}
 .stop span{font-size:15px;font-weight:700;color:var(--sub);font-variant-numeric:tabular-nums;white-space:nowrap}
-.stage{flex:1;min-height:0;display:flex;flex-direction:column;gap:16px;max-width:820px;width:100%;margin:0 auto}
+.stage{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:16px;max-width:820px;width:100%;margin:0 auto}
 .cardwrap{position:relative;flex:1;min-height:220px;display:flex}
 .card{position:relative;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:64px 28px 28px;border:2px solid var(--line);border-radius:26px;background:var(--raised);text-align:center;touch-action:none;user-select:none;-webkit-user-select:none;will-change:transform}
 .card.weak{border-color:var(--bad)}
@@ -175,7 +175,7 @@ header h1{margin:0;font-size:24px;font-weight:900;letter-spacing:-0.02em}
 .ans input{height:64px;padding:0 18px;border:2px solid var(--ink);border-radius:16px;font-size:26px;font-weight:700;text-align:center;width:100%;background:var(--bg)}
 .ans input:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 4px var(--soft)}
 .preview{min-height:22px;text-align:center;font-size:18px;color:var(--sub)}
-.pad{position:relative;height:clamp(220px,40vh,440px);border:2px solid var(--line);border-radius:20px;background:var(--bg);overflow:hidden;touch-action:none}
+.pad{position:relative;border:2px solid var(--line);border-radius:20px;background:var(--bg);overflow:hidden;touch-action:none}
 .pad canvas{display:block;width:100%;height:100%}
 .pad .ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--line);font-size:22px;font-weight:700;pointer-events:none}
 .padbar{display:grid;grid-template-columns:1fr 1fr 1fr 2fr;gap:8px}
@@ -477,6 +477,48 @@ async function recognize(strokes, w, h, lang) {
   const j = await res.json();
   if (j[0] !== 'SUCCESS') throw new Error('인식 실패');
   return (j[1]?.[0]?.[1]) || [];
+}
+
+/* 손글씨 채점은 너그럽게: 작은 글자(っ·ゃ)와 큰 글자, 장음 표시 차이는 같은 걸로 봐요 */
+const SMALL = { 'ぁ': 'あ', 'ぃ': 'い', 'ぅ': 'う', 'ぇ': 'え', 'ぉ': 'お', 'っ': 'つ', 'ゃ': 'や', 'ゅ': 'ゆ', 'ょ': 'よ', 'ゎ': 'わ', 'ゕ': 'か', 'ゖ': 'け' };
+const looseJa = s => normJa(s).replace(/[ぁぃぅぇぉっゃゅょゎゕゖ]/g, c => SMALL[c]).replace(/[ー一ｰ－‐-]/g, 'ー');
+function penTargets(it) {
+  if (S.dir === 'kj') return [...new Set([it.ja, it.kana].filter(Boolean).map(looseJa))].filter(Boolean);
+  return [...new Set(it.ko.flatMap(k => [k, ...String(k).split(/[\/,·]/)]).map(normKo))].filter(Boolean);
+}
+/* 칸마다 나온 후보로 정답과 맞춰 봐요. 칸 하나 = 정답 한 글자, 글자가 다르거나 빠지면 1점씩 */
+function gradePen(cands, targets, toJa) {
+  const norm = toJa ? looseJa : normKo;
+  const opts = cands.map(cs => cs.map(norm));
+  let best = { dist: Infinity, heard: '', near: false };
+  for (const t of targets) {
+    const a = Array.from(t), n = opts.length, m = a.length;
+    const d = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(Infinity));
+    const how = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(null));
+    d[0][0] = 0;
+    for (let i = 0; i <= n; i++) for (let j = 0; j <= m; j++) {
+      const v = d[i][j]; if (v === Infinity) continue;
+      if (i < n) {
+        const o = opts[i];
+        // 칸 하나가 글자 하나(또는 붙여 쓴 두 글자)와 맞으면 0점
+        for (const len of [1, 2]) {
+          const k = o.indexOf(a.slice(j, j + len).join(''));
+          if (j + len <= m && k >= 0 && v < d[i + 1][j + len]) { d[i + 1][j + len] = v; how[i + 1][j + len] = [i, j, cands[i][k]]; }
+        }
+        if (j < m && v + 1 < d[i + 1][j + 1]) { d[i + 1][j + 1] = v + 1; how[i + 1][j + 1] = [i, j, cands[i][0] || '?']; }
+        const skip = o.includes('') ? 0 : 1;   // 문장부호만 쓴 칸은 그냥 넘어가요
+        if (v + skip < d[i + 1][j]) { d[i + 1][j] = v + skip; how[i + 1][j] = [i, j, cands[i][0] || ''] }
+      }
+      if (j < m && v + 1 < d[i][j + 1]) { d[i][j + 1] = v + 1; how[i][j + 1] = [i, j, ''] }
+    }
+    if (d[n][m] < best.dist) {
+      let heard = '', i = n, j = m;
+      while (how[i][j]) { const [pi, pj, c] = how[i][j]; if (pi !== i) heard = c + heard; i = pi; j = pj; }
+      const allow = m >= 10 ? 2 : m >= 4 ? 1 : 0;
+      best = { dist: d[n][m], heard, near: d[n][m] <= allow };
+    }
+  }
+  return best;
 }
 
 /* ---------- 화면: 탭 ---------- */
@@ -832,7 +874,8 @@ function showInput(it) {
   $('#stage').innerHTML = `
     <div class="cardwrap" style="flex:0 1 auto;min-height:180px"><div class="card${isWeak(it.id) ? ' weak' : ''}" id="card" style="touch-action:auto">${cardTop(it)}${f.q}</div></div>
     <div id="inArea">${pen ? `
-      <div class="pad" id="pad"><canvas id="cv"></canvas><div class="ph" id="ph">${toJa ? '일본어로 써 주세요' : '한국어 뜻을 써 주세요'}</div></div>
+      <p class="hint">${toJa ? '일본어로' : '한국어 뜻을'} 한 칸에 한 글자씩 써 주세요. 칸이 남아도 괜찮아요.</p>
+      <div class="pad" id="pad"><canvas id="cv"></canvas><div class="ph" id="ph"></div></div>
       <div class="padbar"><button id="pUndo">한 획 취소</button><button id="pClear">지우기</button><button id="pIdk">모르겠어요</button><button class="ok" id="pOk">확인</button></div>` : `
       <div class="ans"><input id="tIn" ${toJa ? 'lang="ja" placeholder="일본어 (로마자로 쳐도 돼요)"' : 'lang="ko" placeholder="한국어 뜻"'} autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
       <div class="preview jp" id="tPrev"></div>
@@ -842,7 +885,7 @@ function showInput(it) {
   bindCorner($('#card'), it);
   if (!toJa && S.autoSpeak) speak(it.ja);
 
-  const judge = (ok, heard, maybe) => {
+  const judge = (ok, heard, maybe, label) => {
     // 결과 보여 주고, 다음으로. 인식이 틀렸을 수도 있으니 "맞게 썼어요"로 바꿀 수 있어요
     $('#inArea').hidden = true;
     let final = ok;
@@ -852,7 +895,7 @@ function showInput(it) {
     const long = it.kind === 'd' ? ' long' : '';
     const draw = () => {
       $('#resArea').innerHTML = `<div class="ans">
-        <div class="res ${final ? 'ok' : 'bad'}"><span class="lbl">${final ? '정답!' : maybe ? '확인해 주세요' : '틀렸어요'}</span>
+        <div class="res ${final ? 'ok' : 'bad'}"><span class="lbl">${final ? '정답!' : maybe ? (label || '확인해 주세요') : '틀렸어요'}</span>
           <div class="main${toJa ? ' jp' : ''}${long}">${esc(main)}</div>
           ${reading ? `<div class="reading jp">${esc(reading)}</div>` : ''}
           ${heard != null ? `<span class="heard">${pen ? '인식한 글자' : '쓴 답'}: ${esc(heard || '(없음)')}</span>` : ''}</div>
@@ -877,35 +920,49 @@ function showInput(it) {
     return;
   }
 
-  /* 손글씨 판 */
-  const cv = $('#cv'), ctx = cv.getContext('2d');
+  /* 손글씨 판: 칸마다 한 글자씩 써요. 칸 수는 정답보다 2칸 넉넉하게 (길이가 힌트가 되지 않게) */
+  const targets = penTargets(it);
+  const nBox = Math.max(4, Math.max(...targets.map(t => Array.from(t).length), 1) + 2);
+  const pad = $('#pad'), cv = $('#cv'), ctx = cv.getContext('2d');
   const strokes = [];
-  let cur = null, t0 = 0;
-  const fit = () => {
-    const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
-    cv.width = r.width * dpr; cv.height = r.height * dpr;
+  let cur = null, t0 = 0, box = 84, cols = 1;
+  const layout = () => {
+    const W = pad.clientWidth;
+    cols = Math.max(1, Math.floor(W / 84));
+    if (nBox < cols) { cols = nBox; box = Math.min(120, Math.floor(W / cols)); } else box = Math.floor(W / cols);
+    pad.style.height = Math.ceil(nBox / cols) * box + 'px';
+    const dpr = window.devicePixelRatio || 1;
+    cv.width = W * dpr; cv.height = Math.ceil(nBox / cols) * box * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); redraw();
   };
+  const css = v => getComputedStyle(document.documentElement).getPropertyValue(v);
   const redraw = () => {
-    const r = cv.getBoundingClientRect();
-    ctx.clearRect(0, 0, r.width, r.height);
-    ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--ink');
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    ctx.strokeStyle = css('--line'); ctx.lineWidth = 1;
+    for (let i = 0; i < nBox; i++) {
+      const x = (i % cols) * box, y = Math.floor(i / cols) * box;
+      ctx.setLineDash([]); ctx.strokeRect(x + 3, y + 3, box - 6, box - 6);
+      ctx.setLineDash([4, 5]); ctx.beginPath();
+      ctx.moveTo(x + box / 2, y + 8); ctx.lineTo(x + box / 2, y + box - 8);
+      ctx.moveTo(x + 8, y + box / 2); ctx.lineTo(x + box - 8, y + box / 2); ctx.stroke();
+    }
+    ctx.setLineDash([]); ctx.lineWidth = Math.max(3, box / 22); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.strokeStyle = css('--ink');
     for (const s of strokes) { ctx.beginPath(); s.x.forEach((x, i) => i ? ctx.lineTo(x, s.y[i]) : ctx.moveTo(x, s.y[i])); ctx.stroke(); }
     $('#ph').hidden = strokes.length > 0;
   };
-  fit();
+  layout();
+  const pos = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
   cv.addEventListener('pointerdown', e => {
     cv.setPointerCapture(e.pointerId);
     if (!t0) t0 = Date.now();
-    const r = cv.getBoundingClientRect();
-    cur = { x: [e.clientX - r.left], y: [e.clientY - r.top], t: [Date.now() - t0] };
+    const [x, y] = pos(e);
+    cur = { x: [x], y: [y], t: [Date.now() - t0] };
     strokes.push(cur); redraw();
   });
   cv.addEventListener('pointermove', e => {
     if (!cur) return;
-    const r = cv.getBoundingClientRect();
-    for (const p of e.getCoalescedEvents ? e.getCoalescedEvents() : [e]) { cur.x.push(p.clientX - r.left); cur.y.push(p.clientY - r.top); cur.t.push(Date.now() - t0); }
+    for (const p of e.getCoalescedEvents ? e.getCoalescedEvents() : [e]) { const [x, y] = pos(p); cur.x.push(x); cur.y.push(y); cur.t.push(Date.now() - t0); }
     redraw();
   });
   const endStroke = () => { cur = null; };
@@ -916,11 +973,22 @@ function showInput(it) {
   $('#pOk').onclick = async () => {
     if (!strokes.length) return;
     const b = $('#pOk'); b.disabled = true; b.textContent = '읽는 중…';
+    // 획을 칸별로 나눠요 (획 가운데가 들어 있는 칸)
+    const cells = new Map();
+    for (const s of strokes) {
+      const cx = (Math.min(...s.x) + Math.max(...s.x)) / 2, cy = (Math.min(...s.y) + Math.max(...s.y)) / 2;
+      const i = Math.min(nBox - 1, Math.floor(cy / box) * cols + Math.min(cols - 1, Math.max(0, Math.floor(cx / box))));
+      const ox = (i % cols) * box, oy = Math.floor(i / cols) * box;
+      if (!cells.has(i)) cells.set(i, []);
+      cells.get(i).push({ x: s.x.map(v => v - ox), y: s.y.map(v => v - oy), t: s.t });
+    }
     try {
-      const r = cv.getBoundingClientRect();
-      const cands = await recognize(strokes, r.width, r.height, toJa ? 'ja' : 'ko');
-      const hit = cands.find(c => check(it, c));
-      judge(!!hit, hit || cands[0] || '');
+      const order = [...cells.keys()].sort((a, b) => a - b);
+      const cands = await Promise.all(order.map(i => recognize(cells.get(i), box, box, toJa ? 'ja' : 'ko')));
+      const g = gradePen(cands, targets, toJa);
+      if (g.dist === 0) judge(true, g.heard);
+      else if (g.near) judge(false, g.heard, true, '거의 맞았어요');
+      else judge(false, g.heard);
     } catch {
       // 인터넷이 없거나 인식이 안 되면 정답을 보고 직접 판단
       judge(false, null, true);
