@@ -213,7 +213,8 @@ header h1{margin:0;font-size:24px;font-weight:900;letter-spacing:-0.02em}
 
   <!-- 외우기 -->
   <section class="page" id="p-home">
-    <p class="empty" id="noData" hidden>교과서 내용이 아직 들어가지 않았어요.<br>내용이 들어가면 여기서 바로 외울 수 있어요.</p>
+    <div class="empty" id="noData" hidden>교과서 내용이 아직 들어가지 않았어요.<br>받은 <b>교과서 파일(.json)</b>을 한 번만 불러오면 계속 들어 있어요.
+      <button class="go" data-act="bookLoad" style="margin-top:14px">교과서 불러오기</button></div>
     <div class="banner" id="examBanner" hidden></div>
     <div class="cols">
       <div class="col">
@@ -303,16 +304,24 @@ header h1{margin:0;font-size:24px;font-weight:900;letter-spacing:-0.02em}
       </div>
       <div class="col">
         <div class="box">
+          <b>교과서</b>
+          <p class="hint" id="bookInfo"></p>
+          <div class="two">
+            <button class="go line" data-act="bookLoad">교과서 불러오기</button>
+            <button class="go line" id="bookClear">교과서 지우기</button>
+          </div>
+          <input type="file" id="bookFile" hidden>
+        </div>
+        <div class="box">
           <b>백업</b>
           <p class="hint">공부 기록은 이 아이패드 안에만 저장돼요. 아이패드를 바꾸거나 사파리 기록을 지우기 전에 백업해 두세요.</p>
           <div class="two">
             <button class="go line" id="exportBtn">백업 파일 저장</button>
             <button class="go line" id="importBtn">백업 불러오기</button>
           </div>
-          <input type="file" id="importFile" accept="application/json,.json" hidden>
+          <input type="file" id="importFile" hidden>
         </div>
         <button class="del" id="resetBtn">공부 기록 모두 지우기</button>
-        <p class="hint" id="bookInfo"></p>
       </div>
     </div>
   </section>
@@ -336,7 +345,11 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
 /* ---------- 교과서 데이터 → 외울 것 목록 ---------- */
-const DATA = window.JP_DATA || { lessons: [] };
+// 교과서는 저작권 때문에 저장소에 넣지 않고, 받은 파일을 한 번 불러와 이 기기에 저장해 둬요
+const BOOK_KEY = 'jp-book';
+let saved = null;
+try { saved = JSON.parse(localStorage.getItem(BOOK_KEY) || 'null'); } catch {}
+const DATA = saved?.lessons?.length ? saved : (window.JP_DATA || { lessons: [] });
 const LESSONS = DATA.lessons || [];
 const ITEMS = [];   // 단어와 다이얼로그 문장 모두
 const BY_ID = {};
@@ -391,7 +404,7 @@ function record(id, ok) {
 
 /* ---------- 채점용 글자 정리 ---------- */
 const toHira = s => s.replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
-const normJa = s => toHira(String(s).normalize('NFKC').toLowerCase()).replace(/[\s、。，．,.・!?！？「」『』（）()…〜~―]/g, '');
+const normJa = s => toHira(String(s).normalize('NFKC').toLowerCase()).replace(/[\s、。，．,.・!?！？「」『』（）()…〜~―]/g, '').replace(/^[-ー]+/, '');
 const normKo = s => String(s).normalize('NFKC').replace(/\([^)]*\)/g, '').replace(/[\s.,!?~·'"…\-/]/g, '');
 function answersOf(it) {
   // 지금 방향에서 정답이 될 수 있는 것들
@@ -603,7 +616,7 @@ function renderSet() {
   $('#autoSpeak').checked = S.autoSpeak;
   $('#showKana').checked = S.showKana;
   segShow($('#themeSeg'), S.theme);
-  $('#bookInfo').textContent = `${DATA.book || ''} · ${LESSONS.length}과 · 단어 ${ITEMS.filter(i => i.kind === 'w').length}개 · 다이얼로그 ${ITEMS.filter(i => i.kind === 'd').length}문장`;
+  $('#bookInfo').textContent = !LESSONS.length ? '아직 불러온 교과서가 없어요.' : `${DATA.book || ''} · ${LESSONS.length}과 · 단어 ${ITEMS.filter(i => i.kind === 'w').length}개 · 다이얼로그 ${ITEMS.filter(i => i.kind === 'd').length}문장`;
 }
 $('#examDate').onchange = e => { S.examDate = e.target.value; save(); render(); };
 $('#autoSpeak').onchange = e => { S.autoSpeak = e.target.checked; save(); };
@@ -615,6 +628,25 @@ $('#exportBtn').onclick = () => {
   a.download = `일본어암기-백업-${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+document.querySelectorAll('[data-act="bookLoad"]').forEach(b => b.onclick = () => $('#bookFile').click());
+$('#bookFile').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  try {
+    const j = JSON.parse(await f.text());
+    if (!Array.isArray(j?.lessons) || !j.lessons.length) throw 0;
+    localStorage.setItem(BOOK_KEY, JSON.stringify(j));
+    alert(`불러왔어요. ${j.lessons.length}과가 들어갔어요.`);
+    location.reload();
+  } catch { alert('교과서 파일이 아니에요. 받은 .json 파일을 골라 주세요.'); }
+};
+let clearArm = 0;
+$('#bookClear').onclick = () => {
+  const b = $('#bookClear');
+  if (Date.now() - clearArm > 3000) { clearArm = Date.now(); b.textContent = '한 번 더 누르면 지워져요'; setTimeout(() => b.textContent = '교과서 지우기', 3000); return; }
+  try { localStorage.removeItem(BOOK_KEY); } catch {}
+  location.reload();
 };
 $('#importBtn').onclick = () => $('#importFile').click();
 $('#importFile').onchange = async e => {
