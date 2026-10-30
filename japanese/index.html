@@ -126,7 +126,7 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px}
 header h1{margin:0;font-size:26px;font-weight:700;letter-spacing:-0.02em}
 header h1 small{display:block;font-size:14px;font-weight:500;color:var(--sub);letter-spacing:0;margin-top:2px}
 .hright{display:flex;align-items:center;gap:12px}
-.dday{font-size:15px;font-weight:600;color:var(--sub);padding:8px 14px;border-radius:99px;background:var(--surface);box-shadow:var(--shadow)}
+.dday{font-size:15px;font-weight:600;color:var(--sub);display:inline-flex;align-items:center;height:42px;padding:0 16px;border-radius:99px;background:var(--surface);box-shadow:var(--shadow)}
 .dday:empty{display:none}
 .dday.near{color:var(--bad)}
 
@@ -395,7 +395,7 @@ header h1 small{display:block;font-size:14px;font-weight:500;color:var(--sub);le
 [data-shape="apple"] .chips button{min-height:44px;padding:0 18px;font-size:16px}
 [data-shape="apple"] .seg button{min-height:40px;font-size:15px}
 [data-shape="apple"] .tabs button{height:40px;font-size:15px}
-[data-shape="apple"] .ghost{height:44px}
+[data-shape="apple"] :is(.ghost,.dday){height:44px}
 [data-shape="apple"] .sw i{width:44px;height:44px}
 /* ③ 색은 아껴서: 고른 칩은 옅은 포인트 색 + 포인트 색 글씨. 진하게 채운 색은 주 버튼(.go)에만 */
 [data-shape="apple"] .chips button[aria-pressed="true"]{background:color-mix(in srgb, var(--accent) 16%, var(--surface));color:var(--accent);font-weight:700;box-shadow:inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 45%, transparent)}
