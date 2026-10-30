@@ -1,0 +1,938 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="일본어">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#ffffff" id="themeColor">
+<title>일본어 암기</title>
+<script>
+// 화면이 번쩍이지 않게 그리기 전에 밝게/어둡게 먼저 정해요
+try { const t = JSON.parse(localStorage.getItem('jp-v1') || '{}').settings?.theme; if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch {}
+</script>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Noto+Sans+KR:wght@400;500;700;900&display=swap">
+<style>
+/* 다른 앱들과 같은 톤: 흰 바탕 · 검은 글씨 · 굵은 고딕. 아이패드 기준으로 크게 */
+:root{
+  --bg:#ffffff; --ink:#111111; --sub:#707070; --line:#e7e7e7; --soft:#f5f5f5;
+  --good:#16a34a; --good-bg:#dcf3e4; --good-ink:#0f6b31;
+  --warn:#d97706; --warn-bg:#fdf1cf;
+  --bad:#dc2626;  --bad-bg:#fbdcdc;
+  --star:#f5b301; --raised:#ffffff;
+  --font:"Noto Sans KR",-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --jp:"Noto Sans JP","Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#111214; --ink:#f2f2f2; --sub:#9a9a9f; --line:#2e2e32; --soft:#1e1e21;
+    --good:#22c55e; --good-bg:#12301d; --good-ink:#6ee7a0;
+    --warn:#f59e0b; --warn-bg:#3a2a0b;
+    --bad:#f05252;  --bad-bg:#3b1616;
+    --raised:#2e2e32; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#111214; --ink:#f2f2f2; --sub:#9a9a9f; --line:#2e2e32; --soft:#1e1e21;
+  --good:#22c55e; --good-bg:#12301d; --good-ink:#6ee7a0;
+  --warn:#f59e0b; --warn-bg:#3a2a0b;
+  --bad:#f05252;  --bad-bg:#3b1616;
+  --raised:#2e2e32; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);-webkit-text-size-adjust:100%}
+body{padding:env(safe-area-inset-top,0px) max(16px,env(safe-area-inset-right,0px)) env(safe-area-inset-bottom,0px) max(16px,env(safe-area-inset-left,0px))}
+[hidden]{display:none!important}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;-webkit-tap-highlight-color:transparent}
+button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.jp{font-family:var(--jp)}
+.wrap{max-width:980px;margin:0 auto;padding-block:24px 56px;display:flex;flex-direction:column;gap:24px}
+
+header{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+header h1{margin:0;font-size:24px;font-weight:900;letter-spacing:-0.02em}
+.hright{display:flex;align-items:center;gap:12px}
+.dday{font-size:15px;font-weight:700;color:var(--sub)}
+.dday.near{color:var(--bad)}
+
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);background:var(--soft);border-radius:14px;padding:4px}
+.tabs button{height:46px;border:none;background:transparent;border-radius:11px;font-size:17px;font-weight:700;color:var(--sub)}
+.tabs button[aria-selected="true"]{background:var(--raised);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+
+.page{display:flex;flex-direction:column;gap:24px}
+.cols{display:grid;gap:24px}
+@media (min-width:760px){.cols{grid-template-columns:1fr 1fr;align-items:start}}
+.col{display:flex;flex-direction:column;gap:22px}
+.label{font-size:13px;font-weight:700;color:var(--sub);letter-spacing:0.06em;margin:0 0 10px}
+.hint{font-size:13px;color:var(--sub);line-height:1.6;margin:0}
+.empty{padding:22px;border-radius:16px;background:var(--soft);color:var(--sub);font-size:15px;line-height:1.7;text-align:center;margin:0}
+.banner{padding:16px 18px;border-radius:16px;background:var(--bad-bg);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.banner b{font-size:16px}
+.banner span{font-size:14px;color:var(--sub)}
+
+.seg{display:grid;grid-auto-columns:1fr;grid-auto-flow:column;gap:6px;background:var(--soft);border-radius:14px;padding:4px}
+.seg button{height:46px;border:none;background:transparent;border-radius:11px;font-size:16px;font-weight:700;color:var(--sub)}
+.seg button[aria-pressed="true"]{background:var(--raised);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips button{min-height:42px;padding:0 16px;border:1px solid var(--line);border-radius:99px;background:var(--bg);font-size:15px;font-weight:700}
+.chips button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.mode{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:18px;border:1px solid var(--line);border-radius:18px;background:var(--bg);text-align:left;min-height:108px}
+.mode b{font-size:19px;font-weight:900}
+.mode span{font-size:14px;color:var(--sub);font-variant-numeric:tabular-nums}
+.mode.main{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.mode.main span{color:var(--bg);opacity:.7}
+.mode.weak b{color:var(--bad)}
+.mode:disabled{opacity:.4}
+
+.bars{display:flex;flex-direction:column;gap:14px;margin:0;padding:0;list-style:none}
+.bars li{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:center;font-size:15px}
+.bars li>span:first-child{font-weight:700;min-width:0;overflow-wrap:anywhere}
+.bars .bar{grid-column:1/-1;height:10px;background:var(--soft);border-radius:99px;overflow:hidden}
+.bars .bar i{display:block;height:100%;background:var(--ink);border-radius:99px}
+.bars small{font-size:13px;color:var(--sub);font-variant-numeric:tabular-nums;text-align:right}
+.bars small em{font-style:normal;color:var(--bad);font-weight:700}
+
+.go{height:56px;border:none;border-radius:16px;background:var(--ink);color:var(--bg);font-size:17px;font-weight:700;width:100%}
+.go.line{background:var(--bg);color:var(--ink);border:2px solid var(--ink)}
+.go.ok{background:var(--good);color:#fff}
+.go.bad{background:var(--bad);color:#fff}
+.go:disabled{opacity:.4}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ghost{height:40px;padding:0 14px;border:1px solid var(--line);background:var(--bg);border-radius:12px;font-size:15px;font-weight:700}
+.field{display:flex;flex-direction:column;gap:8px}
+.field>span{font-size:14px;font-weight:700}
+.field input{height:48px;padding:0 14px;border:1px solid var(--line);border-radius:12px;background:var(--bg);font-size:17px}
+.toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0;border-bottom:1px solid var(--line);font-size:16px;font-weight:700}
+.toggle input{width:24px;height:24px;accent-color:var(--ink)}
+.box{border:1px solid var(--line);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:12px}
+.del{height:48px;border-radius:12px;font-size:15px;font-weight:700;border:1px solid var(--bad);background:var(--bg);color:var(--bad)}
+.del.arm{background:var(--bad);color:#fff}
+
+/* 열람 */
+.dlg{display:flex;flex-direction:column;gap:10px}
+.dlg h3{margin:8px 0 2px;font-size:18px;font-weight:900}
+.dline{display:grid;grid-template-columns:72px 1fr auto;gap:12px;align-items:start;padding:14px 16px;border-radius:16px;background:var(--soft)}
+.dline .who{font-size:14px;font-weight:700;color:var(--sub);padding-top:4px}
+.dline .ja{font-size:22px;line-height:1.6;font-weight:700}
+.dline .kana{font-size:14px;color:var(--sub);margin-top:2px}
+.dline .ko{font-size:16px;line-height:1.6;margin-top:6px}
+.dline .ko.hide{color:transparent;background:var(--line);border-radius:6px;cursor:pointer;user-select:none}
+.say{width:44px;height:44px;border:1px solid var(--line);border-radius:12px;background:var(--bg);font-size:18px}
+
+/* 약한 것 */
+.list{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.item{display:grid;grid-template-columns:1fr auto auto;gap:14px;align-items:center;padding:14px 16px}
+.item+.item{border-top:1px solid var(--line)}
+.item .ja{font-size:20px;font-weight:700}
+.item .kana{font-size:13px;color:var(--sub)}
+.item .ko{font-size:15px;margin-top:2px}
+.item .why{font-size:12px;color:var(--warn);font-weight:700;margin-top:4px}
+.item .cnt{font-size:13px;color:var(--sub);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.item .cnt b{color:var(--bad)}
+.star{width:44px;height:44px;border:none;background:transparent;font-size:24px;color:var(--line);line-height:1}
+.star[aria-pressed="true"]{color:var(--star)}
+
+#inArea{display:flex;flex-direction:column;gap:10px}
+/* 공부 화면 */
+.study{position:fixed;inset:0;z-index:20;background:var(--bg);display:flex;flex-direction:column;padding:calc(env(safe-area-inset-top,0px) + 14px) max(20px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 18px) max(20px,env(safe-area-inset-left,0px));gap:16px;overflow:hidden}
+.stop{display:flex;align-items:center;gap:14px;max-width:820px;width:100%;margin:0 auto}
+.stop .prog{flex:1;height:8px;background:var(--soft);border-radius:99px;overflow:hidden}
+.stop .prog i{display:block;height:100%;background:var(--ink);border-radius:99px;transition:width .2s}
+.stop span{font-size:15px;font-weight:700;color:var(--sub);font-variant-numeric:tabular-nums;white-space:nowrap}
+.stage{flex:1;min-height:0;display:flex;flex-direction:column;gap:16px;max-width:820px;width:100%;margin:0 auto}
+.cardwrap{position:relative;flex:1;min-height:220px;display:flex}
+.card{position:relative;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:64px 28px 28px;border:2px solid var(--line);border-radius:26px;background:var(--raised);text-align:center;touch-action:none;user-select:none;-webkit-user-select:none;will-change:transform}
+.card.weak{border-color:var(--bad)}
+.card .ctx{font-size:15px;color:var(--sub);line-height:1.6;max-width:90%}
+.card .who{font-size:15px;font-weight:700;color:var(--sub)}
+.card .q{font-size:clamp(30px,5.5vw,56px);font-weight:900;line-height:1.35;overflow-wrap:anywhere}
+.card .q.long{font-size:clamp(22px,3.4vw,34px);font-weight:700}
+.card .qk{font-size:20px;color:var(--sub)}
+.card .a{display:flex;flex-direction:column;gap:6px;padding-top:16px;border-top:1px dashed var(--line);width:100%}
+.card .a b{font-size:clamp(22px,3.6vw,36px);font-weight:900;line-height:1.4;overflow-wrap:anywhere}
+.card .a span{font-size:17px;color:var(--sub)}
+.card .tap{font-size:14px;color:var(--sub)}
+.card .corner{position:absolute;top:12px;display:flex;gap:4px}
+.card .corner.l{left:12px}.card .corner.r{right:12px}
+.badge{padding:4px 10px;border-radius:8px;background:var(--soft);font-size:13px;font-weight:700;color:var(--sub)}
+.badge.red{background:var(--bad-bg);color:var(--bad)}
+.zone{position:absolute;left:0;right:0;display:flex;justify-content:center;pointer-events:none;opacity:0;transition:opacity .1s}
+.zone b{padding:10px 22px;border-radius:99px;font-size:18px;font-weight:900}
+.zone.down{bottom:-6px}.zone.down b{background:var(--good);color:#fff}
+.zone.up{top:-6px}.zone.up b{background:var(--bad);color:#fff}
+.zone.on{opacity:1}
+.swipehint{text-align:center;font-size:14px;color:var(--sub);margin:0}
+.ans{display:flex;flex-direction:column;gap:10px}
+.ans input{height:64px;padding:0 18px;border:2px solid var(--ink);border-radius:16px;font-size:26px;font-weight:700;text-align:center;width:100%;background:var(--bg)}
+.ans input:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 4px var(--soft)}
+.preview{min-height:22px;text-align:center;font-size:18px;color:var(--sub)}
+.pad{position:relative;height:clamp(220px,40vh,440px);border:2px solid var(--line);border-radius:20px;background:var(--bg);overflow:hidden;touch-action:none}
+.pad canvas{display:block;width:100%;height:100%}
+.pad .ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--line);font-size:22px;font-weight:700;pointer-events:none}
+.padbar{display:grid;grid-template-columns:1fr 1fr 1fr 2fr;gap:8px}
+.padbar button{height:52px;border-radius:14px;border:1px solid var(--line);background:var(--bg);font-size:16px;font-weight:700}
+.padbar .ok{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.res{padding:16px 18px;border-radius:18px;display:flex;flex-direction:column;gap:6px}
+.res b{font-size:24px;font-weight:900}
+.res span{font-size:15px;line-height:1.6}
+.res.ok{background:var(--good-bg);color:var(--good-ink)}
+.res.bad{background:var(--bad-bg);color:var(--bad)}
+.res .heard{color:var(--sub)}
+.why{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.why>span{font-size:14px;font-weight:700;color:var(--sub);margin-right:4px}
+.why button{min-height:38px;padding:0 14px;border:1px solid var(--line);border-radius:99px;background:var(--bg);font-size:14px;font-weight:700}
+.why button[aria-pressed="true"]{background:var(--warn);border-color:var(--warn);color:#fff}
+.done{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center}
+.done .num{font-size:72px;font-weight:900;line-height:1}
+.done p{margin:0;font-size:16px;color:var(--sub);line-height:1.7}
+.done .two{width:min(480px,100%)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>일본어 암기</h1>
+    <div class="hright"><span class="dday" id="dday"></span><button class="ghost" data-act="bookLoad">＋ 파일 추가</button></div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="home" aria-selected="true">외우기</button>
+    <button role="tab" data-tab="read" aria-selected="false">다이얼로그 열람</button>
+    <button role="tab" data-tab="weak" aria-selected="false">약한 것</button>
+    <button role="tab" data-tab="set" aria-selected="false">설정</button>
+  </nav>
+
+  <!-- 외우기 -->
+  <section class="page" id="p-home">
+    <div class="empty" id="noData" hidden>교과서 내용이 아직 들어가지 않았어요.<br>받은 <b>교과서 파일(.json)</b>을 한 번만 불러오면 계속 들어 있어요. 단어 파일은 언제든 위의 <b>＋ 파일 추가</b>로 더 넣을 수 있어요.
+      <button class="go" data-act="bookLoad" style="margin-top:14px">교과서 불러오기</button></div>
+    <div class="banner" id="examBanner" hidden></div>
+    <div class="cols">
+      <div class="col">
+        <div>
+          <p class="label">범위</p>
+          <div class="chips" id="lessonChips"></div>
+        </div>
+        <div>
+          <p class="label">방향</p>
+          <div class="seg" id="dirSeg">
+            <button data-v="jk">일본어 → 한국어</button>
+            <button data-v="kj">한국어 → 일본어</button>
+          </div>
+        </div>
+        <div>
+          <p class="label">답하는 방법</p>
+          <div class="seg" id="methodSeg">
+            <button data-v="card">카드 내리기</button>
+            <button data-v="pen">손글씨</button>
+            <button data-v="type">자판</button>
+          </div>
+          <p class="hint" id="methodHint" style="margin-top:8px"></p>
+        </div>
+        <div>
+          <p class="label">한 번에</p>
+          <div class="seg" id="sizeSeg">
+            <button data-v="20">20개</button>
+            <button data-v="50">50개</button>
+            <button data-v="0">범위 전부</button>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="modes">
+          <button class="mode main" data-mode="words"><b>전체 단어</b><span id="nWords"></span></button>
+          <button class="mode main" data-mode="lines"><b>다이얼로그</b><span id="nLines"></span></button>
+          <button class="mode weak" data-mode="weak"><b>약한 것만</b><span id="nWeak"></span></button>
+          <button class="mode" data-mode="star"><b>⭐ 별표만</b><span id="nStar"></span></button>
+        </div>
+        <div>
+          <p class="label">과별 진도</p>
+          <ul class="bars" id="lessonBars"></ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 다이얼로그 열람 -->
+  <section class="page" id="p-read" hidden>
+    <div class="chips" id="readChips"></div>
+    <div class="two">
+      <button class="ghost" id="readKo"></button>
+      <button class="ghost" id="readKana"></button>
+    </div>
+    <div id="readBody"></div>
+  </section>
+
+  <!-- 약한 것 -->
+  <section class="page" id="p-weak" hidden>
+    <div class="seg" id="weakSeg">
+      <button data-v="weak">약한 것</button>
+      <button data-v="star">⭐ 별표</button>
+      <button data-v="all">많이 틀린 순</button>
+    </div>
+    <p class="hint">몰라요가 2번 이상이거나, 정답률이 60%보다 낮거나, 바로 전에 틀린 것이 약한 것이 돼요. 3번 연속 맞히면 빠져요.</p>
+    <div id="weakBody"></div>
+  </section>
+
+  <!-- 설정 -->
+  <section class="page" id="p-set" hidden>
+    <div class="cols">
+      <div class="col">
+        <label class="field"><span>시험 날짜</span><input type="date" id="examDate"></label>
+        <p class="hint">시험 7일 전부터는 외우기 화면 위에 약한 것이 먼저 나와요.</p>
+        <div>
+          <label class="toggle">카드를 뒤집으면 발음 읽어 주기<input type="checkbox" id="autoSpeak"></label>
+          <label class="toggle">일본어 아래에 읽는 법(히라가나) 보이기<input type="checkbox" id="showKana"></label>
+        </div>
+        <div>
+          <p class="label">화면</p>
+          <div class="seg" id="themeSeg">
+            <button data-v="auto">자동</button>
+            <button data-v="light">밝게</button>
+            <button data-v="dark">어둡게</button>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="box">
+          <b>교과서</b>
+          <p class="hint" id="bookInfo"></p>
+          <div class="two">
+            <button class="go line" data-act="bookLoad">＋ 파일 추가</button>
+            <button class="go line" id="bookClear">단어 전부 지우기</button>
+          </div>
+          <input type="file" id="bookFile" hidden>
+        </div>
+        <div class="box">
+          <b>백업</b>
+          <p class="hint">공부 기록은 이 아이패드 안에만 저장돼요. 아이패드를 바꾸거나 사파리 기록을 지우기 전에 백업해 두세요.</p>
+          <div class="two">
+            <button class="go line" id="exportBtn">백업 파일 저장</button>
+            <button class="go line" id="importBtn">백업 불러오기</button>
+          </div>
+          <input type="file" id="importFile" hidden>
+        </div>
+        <button class="del" id="resetBtn">공부 기록 모두 지우기</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- 공부 화면 -->
+<div class="study" id="study" hidden>
+  <div class="stop">
+    <button class="ghost" id="quitBtn">그만하기</button>
+    <div class="prog"><i id="progBar"></i></div>
+    <span id="progText"></span>
+  </div>
+  <div class="stage" id="stage"></div>
+</div>
+
+<script src="data.js"></script>
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+/* ---------- 교과서 데이터 → 외울 것 목록 ---------- */
+// 교과서는 저작권 때문에 저장소에 넣지 않고, 받은 파일을 한 번 불러와 이 기기에 저장해 둬요
+const BOOK_KEY = 'jp-book';
+let saved = null;
+try { saved = JSON.parse(localStorage.getItem(BOOK_KEY) || 'null'); } catch {}
+const DATA = saved?.lessons?.length ? saved : (window.JP_DATA || { lessons: [] });
+const LESSONS = DATA.lessons || [];
+const ITEMS = [];   // 단어와 다이얼로그 문장 모두
+const BY_ID = {};
+for (const L of LESSONS) {
+  const seen = new Set();
+  for (const w of L.words || []) {
+    const id = `w${L.no}:${w.ja}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    ITEMS.push({ id, kind: 'w', lesson: L.no, ja: w.ja, kana: w.kana || '', ko: [].concat(w.ko || []) });
+  }
+  (L.dialogues || []).forEach((d, di) => {
+    let prev = null;
+    d.lines.forEach((ln, li) => {
+      const it = { id: `d${L.no}:${di}:${li}`, kind: 'd', lesson: L.no, dlg: d.title || `대화 ${di + 1}`, who: ln.who || '', ja: ln.ja, kana: ln.kana || '', ko: [].concat(ln.ko || []), prev };
+      ITEMS.push(it);
+      prev = it;
+    });
+  });
+}
+for (const it of ITEMS) BY_ID[it.id] = it;
+// 과 이름표: 파일에 label이 있으면 그걸 쓰고(예: "프린트 1"), 없으면 "N과"
+const lessonLabel = no => LESSONS.find(l => l.no === no)?.label || `${no}과`;
+const lessonName = no => { const L = LESSONS.find(l => l.no === no); return lessonLabel(no) + (L?.title ? ` ${L.title}` : ''); };
+
+/* ---------- 저장 ---------- */
+const KEY = 'jp-v1';
+const DEF = { dir: 'jk', method: 'card', size: '20', lessons: [], examDate: '', autoSpeak: false, showKana: true, theme: 'auto' };
+let DB;
+try { DB = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { DB = {}; }
+DB.settings = Object.assign({}, DEF, DB.settings);
+DB.stats = DB.stats || {};
+const S = DB.settings;
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch {} };
+const st = id => DB.stats[id] || (DB.stats[id] = { ok: 0, bad: 0, streak: 0, lastBad: false, star: false, why: {} });
+
+/* 약한 것: 3번 연속 맞히기 전까지, 바로 전에 틀렸거나 · 몰라요 2번 이상이거나 · 정답률 60% 미만 */
+function isWeak(id) {
+  const s = DB.stats[id];
+  if (!s || s.streak >= 3) return false;
+  const n = s.ok + s.bad;
+  return s.lastBad || s.bad >= 2 || (n > 0 && s.ok / n < 0.6);
+}
+const isStar = id => !!DB.stats[id]?.star;
+const isKnown = id => { const s = DB.stats[id]; return !!s && s.ok > 0 && !isWeak(id); };
+
+function record(id, ok) {
+  const s = st(id);
+  if (ok) { s.ok++; s.streak++; s.lastBad = false; }
+  else { s.bad++; s.streak = 0; s.lastBad = true; }
+  s.last = Date.now();
+  save();
+}
+
+/* ---------- 채점용 글자 정리 ---------- */
+const toHira = s => s.replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
+const normJa = s => toHira(String(s).normalize('NFKC').toLowerCase()).replace(/[\s、。，．,.・!?！？「」『』（）()…〜~―]/g, '').replace(/^[-ー]+/, '');
+const normKo = s => String(s).normalize('NFKC').replace(/\([^)]*\)/g, '').replace(/[\s.,!?~·'"…\-/]/g, '');
+function answersOf(it) {
+  // 지금 방향에서 정답이 될 수 있는 것들
+  if (S.dir === 'jk') return it.ko.flatMap(k => [k, ...String(k).split(/[\/,·]/)]).map(normKo).filter(Boolean);
+  return [it.ja, it.kana].filter(Boolean).map(normJa);
+}
+function check(it, text) {
+  const t = S.dir === 'jk' ? normKo(text) : normJa(romaToKana(text));
+  return !!t && answersOf(it).includes(t);
+}
+
+/* ---------- 로마자 → 히라가나 (자판으로 일본어 칠 때) ---------- */
+const ROMA = (() => {
+  const T = { a: 'あ', i: 'い', u: 'う', e: 'え', o: 'お', '-': 'ー' };
+  const rows = { k: 'かきくけこ', g: 'がぎぐげご', s: 'さしすせそ', z: 'ざじずぜぞ', t: 'たちつてと', d: 'だぢづでど', n: 'なにぬねの', h: 'はひふへほ', b: 'ばびぶべぼ', p: 'ぱぴぷぺぽ', m: 'まみむめも', r: 'らりるれろ' };
+  for (const [c, ks] of Object.entries(rows)) [...'aiueo'].forEach((v, i) => T[c + v] = ks[i]);
+  Object.assign(T, { ya: 'や', yu: 'ゆ', yo: 'よ', wa: 'わ', wo: 'を', wi: 'うぃ', we: 'うぇ',
+    shi: 'し', chi: 'ち', tsu: 'つ', fu: 'ふ', ji: 'じ', fa: 'ふぁ', fi: 'ふぃ', fe: 'ふぇ', fo: 'ふぉ', thi: 'てぃ', dhi: 'でぃ', ti: 'ち', tu: 'つ', si: 'し', zi: 'じ', hu: 'ふ', di: 'ぢ', du: 'づ',
+    xa: 'ぁ', xi: 'ぃ', xu: 'ぅ', xe: 'ぇ', xo: 'ぉ', la: 'ぁ', li: 'ぃ', lu: 'ぅ', le: 'ぇ', lo: 'ぉ', xtu: 'っ', ltu: 'っ', xya: 'ゃ', xyu: 'ゅ', xyo: 'ょ', lya: 'ゃ', lyu: 'ゅ', lyo: 'ょ' });
+  const yo = { ky: 'き', gy: 'ぎ', sy: 'し', zy: 'じ', ty: 'ち', dy: 'ぢ', ny: 'に', hy: 'ひ', by: 'び', py: 'ぴ', my: 'み', ry: 'り', sh: 'し', ch: 'ち', j: 'じ', jy: 'じ', cy: 'ち' };
+  for (const [c, k] of Object.entries(yo)) { T[c + 'a'] = k + 'ゃ'; T[c + 'u'] = k + 'ゅ'; T[c + 'o'] = k + 'ょ'; }
+  Object.assign(T, { she: 'しぇ', che: 'ちぇ', je: 'じぇ' });
+  return T;
+})();
+function romaToKana(input) {
+  const s = String(input).toLowerCase();
+  let out = '', i = 0;
+  while (i < s.length) {
+    const c = s[i];
+    if (!/[a-z\-']/.test(c)) { out += c; i++; continue; }
+    if (c === 'n') {
+      const n = s[i + 1];
+      // konnichiha → こんにちは: nn 뒤에 모음이 오면 두 번째 n은 다음 글자에 써요
+      if (n === 'n') { out += 'ん'; i += /[aiueoy]/.test(s[i + 2] || '') ? 1 : 2; continue; }
+      if (n === "'") { out += 'ん'; i += 2; continue; }
+      if (n === undefined || !/[aiueoy]/.test(n)) { out += 'ん'; i++; continue; }
+    }
+    if (c === s[i + 1] && /[bcdfghjkmpqrstvwxyz]/.test(c)) { out += 'っ'; i++; continue; }
+    let hit = false;
+    for (let len = 3; len >= 1; len--) {
+      const k = s.slice(i, i + len);
+      if (ROMA[k]) { out += ROMA[k]; i += len; hit = true; break; }
+    }
+    if (!hit) { out += c === "'" ? '' : c; i++; }
+  }
+  return out;
+}
+
+/* ---------- 발음 ---------- */
+let jaVoice = null;
+const pickVoice = () => { jaVoice = (speechSynthesis.getVoices() || []).find(v => /^ja/i.test(v.lang)) || null; };
+if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+function speak(text) {
+  if (!('speechSynthesis' in window) || !text) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'ja-JP'; u.rate = 0.9;
+  if (jaVoice) u.voice = jaVoice;
+  speechSynthesis.speak(u);
+}
+
+/* ---------- 손글씨 인식 (구글 필기 인식) ---------- */
+async function recognize(strokes, w, h, lang) {
+  const body = { options: 'enable_pre_space', requests: [{ writing_guide: { writing_area_width: Math.round(w), writing_area_height: Math.round(h) }, ink: strokes.map(s => [s.x, s.y, s.t]), language: lang, max_num_results: 10, max_completions: 0 }] };
+  const res = await fetch('https://inputtools.google.com/request?ime=handwriting&app=mobilesearch&cs=1&oe=UTF-8', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const j = await res.json();
+  if (j[0] !== 'SUCCESS') throw new Error('인식 실패');
+  return (j[1]?.[0]?.[1]) || [];
+}
+
+/* ---------- 화면: 탭 ---------- */
+let tab = 'home';
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
+  tab = b.dataset.tab;
+  document.querySelectorAll('.tabs button').forEach(x => x.setAttribute('aria-selected', x === b));
+  document.querySelectorAll('.page').forEach(p => p.hidden = p.id !== 'p-' + tab);
+  render();
+});
+
+function segBind(el, key, after) {
+  el.querySelectorAll('button').forEach(b => b.onclick = () => { S[key] = b.dataset.v; save(); after && after(); render(); });
+}
+function segShow(el, v) { el.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === String(v))); }
+segBind($('#dirSeg'), 'dir'); segBind($('#methodSeg'), 'method'); segBind($('#sizeSeg'), 'size');
+segBind($('#themeSeg'), 'theme', applyTheme);
+
+function applyTheme() {
+  if (S.theme === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = S.theme;
+  const dark = S.theme === 'dark' || (S.theme === 'auto' && matchMedia('(prefers-color-scheme:dark)').matches);
+  $('#themeColor').content = dark ? '#111214' : '#ffffff';
+}
+applyTheme();
+matchMedia('(prefers-color-scheme:dark)').addEventListener?.('change', applyTheme);
+
+const inScope = it => !S.lessons.length || S.lessons.includes(it.lesson);
+function daysLeft() {
+  if (!S.examDate) return null;
+  const t = new Date(S.examDate + 'T00:00:00'), n = new Date(); n.setHours(0, 0, 0, 0);
+  return Math.round((t - n) / 86400000);
+}
+
+function render() {
+  const d = daysLeft();
+  $('#dday').textContent = d == null ? '' : d > 0 ? `시험 D-${d}` : d === 0 ? '오늘 시험!' : '';
+  $('#dday').classList.toggle('near', d != null && d <= 7);
+  if (tab === 'home') renderHome();
+  if (tab === 'read') renderRead();
+  if (tab === 'weak') renderWeak();
+  if (tab === 'set') renderSet();
+}
+
+/* ---------- 외우기 홈 ---------- */
+const METHOD_HINT = {
+  card: '카드를 눌러 뒤집고, 아래 끝까지 내리면 알아요. 내렸다가 다시 올리거나 그냥 넘기면 몰라요 — 뒤에서 다시 나와요.',
+  pen: '애플펜슬로 쓰면 AI가 읽어서 채점해요. 인터넷이 필요해요.',
+  type: '키보드로 쳐요. 일본어는 로마자로 쳐도 돼요 (taberu → たべる).'
+};
+function renderHome() {
+  $('#noData').hidden = ITEMS.length > 0;
+  document.querySelectorAll('.mode').forEach(b => b.disabled = !ITEMS.length);
+  segShow($('#dirSeg'), S.dir); segShow($('#methodSeg'), S.method); segShow($('#sizeSeg'), S.size);
+  $('#methodHint').textContent = METHOD_HINT[S.method];
+
+  const chips = $('#lessonChips');
+  chips.innerHTML = `<button data-l="all" aria-pressed="${!S.lessons.length}">전체</button>` +
+    LESSONS.map(L => `<button data-l="${L.no}" aria-pressed="${S.lessons.includes(L.no)}">${esc(lessonLabel(L.no))}</button>`).join('');
+  chips.querySelectorAll('button').forEach(b => b.onclick = () => {
+    if (b.dataset.l === 'all') S.lessons = [];
+    else { const n = +b.dataset.l; S.lessons = S.lessons.includes(n) ? S.lessons.filter(x => x !== n) : [...S.lessons, n].sort((a, b) => a - b); }
+    save(); render();
+  });
+
+  const scope = ITEMS.filter(inScope);
+  const w = scope.filter(i => i.kind === 'w'), l = scope.filter(i => i.kind === 'd');
+  const weak = scope.filter(i => isWeak(i.id)), star = scope.filter(i => isStar(i.id));
+  $('#nWords').textContent = `${w.length}개 · 외움 ${w.filter(i => isKnown(i.id)).length}`;
+  $('#nLines').textContent = `${l.length}문장 · 외움 ${l.filter(i => isKnown(i.id)).length}`;
+  $('#nWeak').textContent = `${weak.length}개`;
+  $('#nStar').textContent = `${star.length}개`;
+  document.querySelector('[data-mode="weak"]').disabled = !weak.length;
+  document.querySelector('[data-mode="star"]').disabled = !star.length;
+
+  const d = daysLeft(), allWeak = ITEMS.filter(i => isWeak(i.id));
+  const ban = $('#examBanner');
+  ban.hidden = !(d != null && d >= 0 && d <= 7 && allWeak.length);
+  if (!ban.hidden) {
+    ban.innerHTML = `<div><b>시험 ${d ? d + '일 전' : '당일'} · 약한 것 ${allWeak.length}개</b><br><span>시험 전까지 매일 한 번씩 돌려요</span></div><button class="ghost" id="banGo">지금 하기</button>`;
+    $('#banGo').onclick = () => start('weakAll');
+  }
+
+  $('#lessonBars').innerHTML = LESSONS.map(L => {
+    const its = ITEMS.filter(i => i.lesson === L.no), k = its.filter(i => isKnown(i.id)).length, wk = its.filter(i => isWeak(i.id)).length;
+    const pct = its.length ? Math.round(k / its.length * 100) : 0;
+    return `<li><span>${esc(lessonName(L.no))}</span><small>${pct}%${wk ? ` · <em>약한 것 ${wk}</em>` : ''}</small><div class="bar"><i style="width:${pct}%"></i></div></li>`;
+  }).join('') || '<li><span class="hint">아직 과가 없어요</span></li>';
+}
+document.querySelectorAll('.mode').forEach(b => b.onclick = () => start(b.dataset.mode));
+
+/* ---------- 다이얼로그 열람 ---------- */
+let readLesson = null, readKo = true, readKana = false;
+const revealed = new Set();
+function renderRead() {
+  const withDlg = LESSONS.filter(L => (L.dialogues || []).length);
+  if (!withDlg.length) { $('#readChips').innerHTML = ''; $('#readBody').innerHTML = '<p class="empty">다이얼로그가 아직 없어요.</p>'; return; }
+  if (!withDlg.some(L => L.no === readLesson)) readLesson = withDlg[0].no;
+  $('#readChips').innerHTML = withDlg.map(L => `<button data-l="${L.no}" aria-pressed="${L.no === readLesson}">${esc(lessonLabel(L.no))}</button>`).join('');
+  $('#readChips').querySelectorAll('button').forEach(b => b.onclick = () => { readLesson = +b.dataset.l; revealed.clear(); renderRead(); });
+  $('#readKo').textContent = readKo ? '한국어 가리기' : '한국어 보이기';
+  $('#readKana').textContent = readKana ? '읽는 법 숨기기' : '읽는 법 보이기';
+  const L = LESSONS.find(l => l.no === readLesson);
+  $('#readBody').innerHTML = `<p class="label">${esc(lessonName(L.no))}</p>` + L.dialogues.map((d, di) => `
+    <div class="dlg"><h3>${esc(d.title || `대화 ${di + 1}`)}</h3>
+    ${d.lines.map((ln, li) => {
+      const id = `d${L.no}:${di}:${li}`, show = readKo || revealed.has(id);
+      return `<div class="dline"><div class="who jp">${esc(ln.who || '')}</div><div>
+        <div class="ja jp">${esc(ln.ja)}</div>${readKana && ln.kana ? `<div class="kana jp">${esc(ln.kana)}</div>` : ''}
+        <div class="ko${show ? '' : ' hide'}" data-id="${id}">${esc([].concat(ln.ko || []).join(' / '))}</div></div>
+        <button class="say" data-say="${esc(ln.ja)}" aria-label="발음 듣기">🔊</button></div>`;
+    }).join('')}</div>`).join('');
+  $('#readBody').querySelectorAll('.ko.hide').forEach(e => e.onclick = () => { revealed.add(e.dataset.id); e.classList.remove('hide'); });
+  $('#readBody').querySelectorAll('.say').forEach(b => b.onclick = () => speak(b.dataset.say));
+}
+$('#readKo').onclick = () => { readKo = !readKo; revealed.clear(); renderRead(); };
+$('#readKana').onclick = () => { readKana = !readKana; renderRead(); };
+
+/* ---------- 약한 것 목록 ---------- */
+let weakView = 'weak';
+$('#weakSeg').querySelectorAll('button').forEach(b => b.onclick = () => { weakView = b.dataset.v; renderWeak(); });
+const WHY = { read: '읽는 법', mean: '뜻', alike: '비슷한 것과 헷갈림' };
+function renderWeak() {
+  segShow($('#weakSeg'), weakView);
+  let list = ITEMS.filter(i => weakView === 'weak' ? isWeak(i.id) : weakView === 'star' ? isStar(i.id) : (DB.stats[i.id]?.bad || 0) > 0);
+  list.sort((a, b) => (DB.stats[b.id]?.bad || 0) - (DB.stats[a.id]?.bad || 0));
+  if (!list.length) { $('#weakBody').innerHTML = `<p class="empty">${weakView === 'star' ? '별표한 게 없어요. 공부할 때 카드의 ☆를 누르면 여기 모여요.' : '아직 없어요. 잘하고 있어요!'}</p>`; return; }
+  $('#weakBody').innerHTML = `<button class="go" id="weakGo" style="margin-bottom:16px">이 ${list.length}개 외우기</button><div class="list">` + list.map(it => {
+    const s = DB.stats[it.id] || {}, why = Object.entries(s.why || {}).filter(([, n]) => n).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${WHY[k]} ${n}`).join(' · ');
+    return `<div class="item"><div><div class="ja jp">${esc(it.ja)}</div>${it.kana ? `<div class="kana jp">${esc(it.kana)}</div>` : ''}
+      <div class="ko">${esc(it.ko.join(' / '))}</div><div class="hint">${esc(lessonName(it.lesson))}${it.kind === 'd' ? ' · 다이얼로그' : ''}</div>${why ? `<div class="why">${esc(why)}</div>` : ''}</div>
+      <div class="cnt">틀림 <b>${s.bad || 0}</b><br>맞음 ${s.ok || 0}</div>
+      <button class="star" data-id="${esc(it.id)}" aria-pressed="${isStar(it.id)}" aria-label="별표">★</button></div>`;
+  }).join('') + '</div>';
+  $('#weakGo').onclick = () => runSession(shuffle(list.slice()));
+  $('#weakBody').querySelectorAll('.star').forEach(b => b.onclick = () => { const s = st(b.dataset.id); s.star = !s.star; save(); renderWeak(); });
+}
+
+/* ---------- 설정 ---------- */
+function renderSet() {
+  $('#examDate').value = S.examDate;
+  $('#autoSpeak').checked = S.autoSpeak;
+  $('#showKana').checked = S.showKana;
+  segShow($('#themeSeg'), S.theme);
+  $('#bookInfo').textContent = !LESSONS.length ? '아직 불러온 교과서가 없어요.' : `${DATA.book || ''} · ${LESSONS.length}과 · 단어 ${ITEMS.filter(i => i.kind === 'w').length}개 · 다이얼로그 ${ITEMS.filter(i => i.kind === 'd').length}문장`;
+}
+$('#examDate').onchange = e => { S.examDate = e.target.value; save(); render(); };
+$('#autoSpeak').onchange = e => { S.autoSpeak = e.target.checked; save(); };
+$('#showKana').onchange = e => { S.showKana = e.target.checked; save(); };
+$('#exportBtn').onclick = () => {
+  const blob = new Blob([JSON.stringify(DB, null, 1)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `일본어암기-백업-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+document.querySelectorAll('[data-act="bookLoad"]').forEach(b => b.onclick = () => $('#bookFile').click());
+$('#bookFile').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  try {
+    const j = JSON.parse(await f.text());
+    if (!Array.isArray(j?.lessons) || !j.lessons.length || j.lessons.some(l => typeof l?.no !== 'number')) throw 0;
+    // 지금 있는 내용에 더해요: 같은 과 번호는 새 내용으로 바꾸고, 새 번호는 추가 (공부 기록은 그대로)
+    const cur = saved?.lessons?.length ? saved : { book: j.book, lessons: [] };
+    const byNo = new Map(cur.lessons.map(l => [l.no, l]));
+    let added = 0, updated = 0;
+    for (const l of j.lessons) { byNo.has(l.no) ? updated++ : added++; byNo.set(l.no, l); }
+    const merged = { book: cur.book || j.book, lessons: [...byNo.values()].sort((a, b) => a.no - b.no) };
+    localStorage.setItem(BOOK_KEY, JSON.stringify(merged));
+    alert(`불러왔어요. ${added ? `새로 ${added}개` : ''}${added && updated ? ', ' : ''}${updated ? `바뀐 것 ${updated}개` : ''}`);
+    location.reload();
+  } catch { alert('단어 파일이 아니에요. 받은 .json 파일을 골라 주세요.'); }
+};
+let clearArm = 0;
+$('#bookClear').onclick = () => {
+  const b = $('#bookClear');
+  if (Date.now() - clearArm > 3000) { clearArm = Date.now(); b.textContent = '한 번 더 누르면 지워져요'; setTimeout(() => b.textContent = '단어 전부 지우기', 3000); return; }
+  try { localStorage.removeItem(BOOK_KEY); } catch {}
+  location.reload();
+};
+$('#importBtn').onclick = () => $('#importFile').click();
+$('#importFile').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  try {
+    const j = JSON.parse(await f.text());
+    if (!j || typeof j.stats !== 'object') throw 0;
+    DB.stats = j.stats; Object.assign(S, j.settings || {}); save(); applyTheme(); render();
+    alert('불러왔어요.');
+  } catch { alert('백업 파일이 아니에요.'); }
+};
+let resetArm = 0;
+$('#resetBtn').onclick = () => {
+  const b = $('#resetBtn');
+  if (Date.now() - resetArm > 3000) { resetArm = Date.now(); b.classList.add('arm'); b.textContent = '한 번 더 누르면 지워져요'; setTimeout(() => { b.classList.remove('arm'); b.textContent = '공부 기록 모두 지우기'; }, 3000); return; }
+  DB.stats = {}; save(); resetArm = 0; b.classList.remove('arm'); b.textContent = '지웠어요'; render();
+};
+
+/* ---------- 공부 ---------- */
+function start(mode) {
+  let pool;
+  if (mode === 'words') pool = ITEMS.filter(i => i.kind === 'w' && inScope(i));
+  else if (mode === 'lines') pool = ITEMS.filter(i => i.kind === 'd' && inScope(i));
+  else if (mode === 'weak') pool = ITEMS.filter(i => inScope(i) && isWeak(i.id));
+  else if (mode === 'star') pool = ITEMS.filter(i => inScope(i) && isStar(i.id));
+  else if (mode === 'weakAll') pool = ITEMS.filter(i => isWeak(i.id));
+  if (!pool.length) return;
+  // 약한 것 → 처음 보는 것 → 오래전에 본 것 순서로 골라요
+  const rank = i => isWeak(i.id) ? 0 : !DB.stats[i.id] ? 1 : 2;
+  pool = shuffle(pool.slice()).sort((a, b) => rank(a) - rank(b) || (DB.stats[a.id]?.last || 0) - (DB.stats[b.id]?.last || 0));
+  const n = +S.size;
+  if (n && (mode === 'words' || mode === 'lines')) pool = pool.slice(0, n);
+  runSession(shuffle(pool));
+}
+
+let SES = null;
+function runSession(items) {
+  SES = { queue: items.slice(), total: items.length, done: 0, know: 0, miss: new Set() };
+  $('#study').hidden = false;
+  document.body.style.overflow = 'hidden';
+  next();
+}
+function endSession() {
+  SES = null;
+  speechSynthesis?.cancel?.();
+  $('#study').hidden = true;
+  document.body.style.overflow = '';
+  render();
+}
+$('#quitBtn').onclick = endSession;
+
+function progress() {
+  $('#progBar').style.width = (SES.done / SES.total * 100) + '%';
+  $('#progText').textContent = `${SES.done} / ${SES.total}`;
+}
+
+/* 맞으면 끝, 틀리면 4~6장 뒤에 다시 나와요 */
+function answer(it, ok) {
+  record(it.id, ok);
+  SES.queue.shift();
+  if (ok) { SES.done++; if (!SES.miss.has(it.id)) SES.know++; }
+  else { SES.miss.add(it.id); SES.queue.splice(Math.min(SES.queue.length, 4 + Math.floor(Math.random() * 3)), 0, it); }
+  next();
+}
+
+function next() {
+  progress();
+  const it = SES.queue[0];
+  if (!it) return showDone();
+  if (S.method === 'card') showCard(it);
+  else showInput(it);
+}
+
+function showDone() {
+  const missed = [...SES.miss].map(id => BY_ID[id]).filter(Boolean);
+  $('#stage').innerHTML = `<div class="done">
+    <div class="num">${SES.know} / ${SES.total}</div>
+    <p>한 번에 맞힌 개수예요.${missed.length ? `<br>헷갈렸던 ${missed.length}개는 약한 것에 들어갔어요.` : '<br>전부 한 번에 맞혔어요!'}</p>
+    <div class="two">${missed.length ? '<button class="go line" id="againMiss">헷갈린 것만 다시</button>' : ''}<button class="go" id="doneBtn">끝내기</button></div></div>`;
+  $('#doneBtn').onclick = endSession;
+  if (missed.length) $('#againMiss').onclick = () => runSession(shuffle(missed));
+}
+
+/* 문제 쪽 / 정답 쪽 글자 */
+function face(it) {
+  const jaSide = `<div class="q jp${it.kind === 'd' ? ' long' : ''}">${esc(it.ja)}</div>${S.showKana && it.kana && it.kana !== it.ja ? `<div class="qk jp">${esc(it.kana)}</div>` : ''}`;
+  const koSide = `<div class="q${it.kind === 'd' ? ' long' : ''}">${esc(it.ko.join(' / '))}</div>`;
+  const ansJa = `<b class="jp">${esc(it.ja)}</b>${it.kana && it.kana !== it.ja ? `<span class="jp">${esc(it.kana)}</span>` : ''}`;
+  const ansKo = `<b>${esc(it.ko.join(' / '))}</b>`;
+  return S.dir === 'jk' ? { q: jaSide, a: ansKo } : { q: koSide, a: ansJa };
+}
+function cardTop(it) {
+  const ctx = it.kind === 'd' && it.prev ? `<div class="ctx jp">${esc(it.prev.who ? it.prev.who + ': ' : '')}${esc(it.prev.ja)}</div>` : '';
+  const who = it.kind === 'd' && it.who ? `<div class="who jp">${esc(it.who)}</div>` : '';
+  return `<div class="corner l"><span class="badge">${esc(lessonLabel(it.lesson))}${it.kind === 'd' ? ' · ' + esc(it.dlg) : ''}</span>${isWeak(it.id) ? '<span class="badge red">약한 것</span>' : ''}</div>
+    <div class="corner r"><button class="say" data-act="say" aria-label="발음 듣기">🔊</button><button class="star" data-act="star" aria-pressed="${isStar(it.id)}" aria-label="별표">★</button></div>
+    ${ctx}${who}`;
+}
+function bindCorner(root, it) {
+  root.querySelector('[data-act="say"]').onclick = e => { e.stopPropagation(); speak(it.ja); };
+  const sb = root.querySelector('[data-act="star"]');
+  sb.onclick = e => { e.stopPropagation(); const s = st(it.id); s.star = !s.star; save(); sb.setAttribute('aria-pressed', s.star); };
+  root.querySelectorAll('[data-act]').forEach(b => b.addEventListener('pointerdown', e => e.stopPropagation()));
+}
+
+/* ----- 카드 내리기 (클래스카드 방식) ----- */
+function showCard(it) {
+  const f = face(it);
+  $('#stage').innerHTML = `
+    <div class="cardwrap">
+      <div class="zone up" id="zUp"><b>몰라요</b></div>
+      <div class="card${isWeak(it.id) ? ' weak' : ''}" id="card">${cardTop(it)}${f.q}
+        <div class="a" id="cAns" hidden>${f.a}</div>
+        <div class="tap" id="cTap">눌러서 정답 보기</div>
+      </div>
+      <div class="zone down" id="zDown"><b>알아요</b></div>
+    </div>
+    <p class="swipehint">끝까지 내리면 알아요 · 내렸다가 다시 올리거나 그냥 넘기면 몰라요</p>
+    <button class="go line" id="skipBtn">다음 (몰라요)</button>`;
+  const card = $('#card');
+  bindCorner(card, it);
+  let flipped = false;
+  const flip = () => { if (flipped) return; flipped = true; $('#cAns').hidden = false; $('#cTap').hidden = true; if (S.autoSpeak) speak(it.ja); };
+  if (S.dir === 'jk' && S.autoSpeak) speak(it.ja);
+
+  let y0 = null, dy = 0, armed = false, moved = false, H = 1, decided = false;
+  const KNOW = () => H * 0.32, NOPE = () => H * 0.2;
+  const zone = () => { $('#zDown').classList.toggle('on', dy > KNOW()); $('#zUp').classList.toggle('on', dy < -NOPE() || (armed && dy < KNOW())); };
+  const out = ok => {
+    if (decided) return; decided = true;
+    card.style.transition = 'transform .22s ease-in, opacity .22s';
+    card.style.transform = `translateY(${ok ? H : -H}px)`;
+    card.style.opacity = '0';
+    setTimeout(() => answer(it, ok), 200);
+  };
+  card.addEventListener('pointerdown', e => {
+    if (decided) return;
+    y0 = e.clientY; dy = 0; armed = false; moved = false; H = card.parentElement.clientHeight;
+    card.setPointerCapture(e.pointerId); card.style.transition = 'none';
+  });
+  card.addEventListener('pointermove', e => {
+    if (y0 == null) return;
+    dy = e.clientY - y0;
+    if (Math.abs(dy) > 8) moved = true;
+    if (dy > KNOW()) armed = true;
+    card.style.transform = `translateY(${dy}px) rotate(${dy / H * 3}deg)`;
+    zone();
+  });
+  const up = () => {
+    if (y0 == null) return;
+    y0 = null;
+    $('#zDown').classList.remove('on'); $('#zUp').classList.remove('on');
+    if (!moved) { flip(); card.style.transform = ''; return; }
+    if (dy > KNOW()) return out(true);                 // 끝까지 내리고 뗌 → 알아요
+    if (armed || dy < -NOPE()) return out(false);      // 내렸다가 다시 올림 / 위로 올림 → 몰라요
+    card.style.transition = 'transform .2s'; card.style.transform = '';
+  };
+  card.addEventListener('pointerup', up);
+  card.addEventListener('pointercancel', up);
+  $('#skipBtn').onclick = () => out(false);
+  keyHandler = e => {
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flip(); }
+    else if (e.key === 'ArrowDown') out(true);
+    else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') out(false);
+  };
+}
+
+/* ----- 손글씨 · 자판 ----- */
+function showInput(it) {
+  const f = face(it), pen = S.method === 'pen', toJa = S.dir === 'kj';
+  $('#stage').innerHTML = `
+    <div class="cardwrap" style="flex:0 1 auto;min-height:180px"><div class="card${isWeak(it.id) ? ' weak' : ''}" id="card" style="touch-action:auto">${cardTop(it)}${f.q}</div></div>
+    <div id="inArea">${pen ? `
+      <div class="pad" id="pad"><canvas id="cv"></canvas><div class="ph" id="ph">${toJa ? '일본어로 써 주세요' : '한국어 뜻을 써 주세요'}</div></div>
+      <div class="padbar"><button id="pUndo">한 획 취소</button><button id="pClear">지우기</button><button id="pIdk">모르겠어요</button><button class="ok" id="pOk">확인</button></div>` : `
+      <div class="ans"><input id="tIn" ${toJa ? 'lang="ja" placeholder="일본어 (로마자로 쳐도 돼요)"' : 'lang="ko" placeholder="한국어 뜻"'} autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <div class="preview jp" id="tPrev"></div>
+      <div class="two"><button class="go line" id="tIdk">모르겠어요</button><button class="go" id="tOk">확인</button></div></div>`}
+    </div>
+    <div id="resArea"></div>`;
+  bindCorner($('#card'), it);
+  if (!toJa && S.autoSpeak) speak(it.ja);
+
+  const judge = (ok, heard, maybe) => {
+    // 결과 보여 주고, 다음으로. 인식이 틀렸을 수도 있으니 "맞게 썼어요"로 바꿀 수 있어요
+    $('#inArea').hidden = true;
+    let final = ok;
+    const why = {};
+    const draw = () => {
+      $('#resArea').innerHTML = `<div class="ans">
+        <div class="res ${final ? 'ok' : 'bad'}"><b>${final ? '정답!' : maybe ? '확인해 주세요' : '틀렸어요'}</b>
+          <span>${f.a.replace(/<\/?b[^>]*>/g, '').replace(/<span[^>]*>/g, ' · ').replace(/<\/span>/g, '')}</span>
+          ${heard != null ? `<span class="heard">${pen ? '인식한 글자' : '쓴 답'}: ${esc(heard || '(없음)')}</span>` : ''}</div>
+        ${!final ? `<div class="why"><span>왜 틀렸어요?</span>${Object.entries(WHY).map(([k, v]) => `<button data-why="${k}" aria-pressed="${!!why[k]}">${v}</button>`).join('')}</div>` : ''}
+        <div class="two">${maybe || !final ? `<button class="go line" id="rFix">${maybe ? '맞았어요' : '사실 맞았어요'}</button>` : '<span></span>'}<button class="go" id="rNext">${maybe ? '틀렸어요' : '다음'}</button></div></div>`;
+      $('#resArea').querySelectorAll('[data-why]').forEach(b => b.onclick = () => { why[b.dataset.why] = !why[b.dataset.why]; draw(); });
+      const fin = () => {
+        if (!final) { const s = st(it.id); for (const k in why) if (why[k]) s.why[k] = (s.why[k] || 0) + 1; }
+        answer(it, final);
+      };
+      $('#rNext').onclick = () => { if (maybe) final = false; fin(); };
+      if ($('#rFix')) $('#rFix').onclick = () => { final = true; fin(); };
+      if (final || maybe) $('#rNext').focus();
+    };
+    draw();
+    if (toJa || final) speak(it.ja);
+    keyHandler = e => { if (e.key === 'Enter') { e.preventDefault(); $('#rNext')?.click(); } };
+  };
+
+  if (!pen) {
+    const inp = $('#tIn');
+    inp.focus();
+    inp.oninput = () => { $('#tPrev').textContent = toJa && /[a-z]/i.test(inp.value) ? '→ ' + romaToKana(inp.value) : ''; };
+    $('#tOk').onclick = () => { const v = inp.value.trim(); if (!v) return; judge(check(it, v), toJa ? romaToKana(v) : v); };
+    $('#tIdk').onclick = () => judge(false, null);
+    keyHandler = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); $('#tOk').click(); } };
+    return;
+  }
+
+  /* 손글씨 판 */
+  const cv = $('#cv'), ctx = cv.getContext('2d');
+  const strokes = [];
+  let cur = null, t0 = 0;
+  const fit = () => {
+    const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    cv.width = r.width * dpr; cv.height = r.height * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); redraw();
+  };
+  const redraw = () => {
+    const r = cv.getBoundingClientRect();
+    ctx.clearRect(0, 0, r.width, r.height);
+    ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--ink');
+    for (const s of strokes) { ctx.beginPath(); s.x.forEach((x, i) => i ? ctx.lineTo(x, s.y[i]) : ctx.moveTo(x, s.y[i])); ctx.stroke(); }
+    $('#ph').hidden = strokes.length > 0;
+  };
+  fit();
+  cv.addEventListener('pointerdown', e => {
+    cv.setPointerCapture(e.pointerId);
+    if (!t0) t0 = Date.now();
+    const r = cv.getBoundingClientRect();
+    cur = { x: [e.clientX - r.left], y: [e.clientY - r.top], t: [Date.now() - t0] };
+    strokes.push(cur); redraw();
+  });
+  cv.addEventListener('pointermove', e => {
+    if (!cur) return;
+    const r = cv.getBoundingClientRect();
+    for (const p of e.getCoalescedEvents ? e.getCoalescedEvents() : [e]) { cur.x.push(p.clientX - r.left); cur.y.push(p.clientY - r.top); cur.t.push(Date.now() - t0); }
+    redraw();
+  });
+  const endStroke = () => { cur = null; };
+  cv.addEventListener('pointerup', endStroke); cv.addEventListener('pointercancel', endStroke);
+  $('#pUndo').onclick = () => { strokes.pop(); redraw(); };
+  $('#pClear').onclick = () => { strokes.length = 0; t0 = 0; redraw(); };
+  $('#pIdk').onclick = () => judge(false, null);
+  $('#pOk').onclick = async () => {
+    if (!strokes.length) return;
+    const b = $('#pOk'); b.disabled = true; b.textContent = '읽는 중…';
+    try {
+      const r = cv.getBoundingClientRect();
+      const cands = await recognize(strokes, r.width, r.height, toJa ? 'ja' : 'ko');
+      const hit = cands.find(c => check(it, c));
+      judge(!!hit, hit || cands[0] || '');
+    } catch {
+      // 인터넷이 없거나 인식이 안 되면 정답을 보고 직접 판단
+      judge(false, null, true);
+    }
+  };
+}
+
+/* 아이패드 키보드 단축키 */
+let keyHandler = null;
+document.addEventListener('keydown', e => { if (SES && keyHandler) keyHandler(e); });
+
+render();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
