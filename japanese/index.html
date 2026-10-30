@@ -405,6 +405,38 @@ header h1 small{display:block;font-size:14px;font-weight:500;color:var(--sub);le
 [data-shape="apple"] .seg button{border-radius:calc(var(--r-in) - 2px)}
 [data-shape="apple"] :is(.card,.pad){border-radius:28px}
 
+/* ───── 아이콘 ───── */
+.ico{width:1em;height:1em;display:block;flex:none}
+[data-act="bookLoad"]{display:inline-flex;align-items:center;justify-content:center;gap:6px}
+[data-act="bookLoad"] .ico{width:17px;height:17px;stroke-width:2.4}
+.say{display:inline-flex;align-items:center;justify-content:center;color:var(--accent)}
+.say .ico{width:22px;height:22px}
+.star{display:inline-flex;align-items:center;justify-content:center}
+.star .ico{width:25px;height:25px;stroke-width:1.7}
+.star[aria-pressed="true"] .ico{fill:currentColor}
+.mode.mini .mi .ico{width:18px;height:18px;stroke-width:2.6}
+.mode.mini.fav .mi .ico{fill:currentColor;stroke-width:1.5}
+.sw.add i .ico{width:20px;height:20px}
+.vs{display:inline-flex;align-items:center;color:var(--sub)}
+.vs .ico{width:18px;height:18px}
+
+/* ───── 움직임: 짧고 부드럽게 (스프링). "동작 줄이기"를 켜면 꺼져요 ───── */
+:root{--spring:cubic-bezier(.32,1.35,.55,1);--ease-out:cubic-bezier(.2,.8,.2,1)}
+@keyframes fadeIn{from{opacity:0}}
+@keyframes riseIn{from{opacity:0;transform:translateY(10px)}}
+@keyframes popIn{from{opacity:0;transform:translateY(14px) scale(.97)}}
+@keyframes starPop{from{transform:scale(.6)}}
+.page:not([hidden]){animation:fadeIn .18s var(--ease-out)}
+.study:not([hidden]){animation:fadeIn .2s var(--ease-out)}
+.cardwrap{animation:popIn .34s var(--spring)}
+#cAns:not([hidden]){animation:riseIn .26s var(--ease-out)}
+#inArea:not([hidden]){animation:riseIn .22s var(--ease-out)}
+.res{animation:popIn .32s var(--spring)}
+.star[aria-pressed="true"] .ico{animation:starPop .32s var(--spring)}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation:none!important;transition-duration:.01ms!important}
+}
+
 /* ───── 배경 사진 + 유리 모양 (Liquid Glass 비슷하게: 흐림 + 반투명 + 빛 테두리) ───── */
 #bgPhoto{display:none}
 :root[data-photo="1"] #bgPhoto{display:block;position:fixed;inset:0;z-index:-1;background:var(--photo) center/cover no-repeat}
@@ -436,7 +468,7 @@ body.studying>.wrap{visibility:hidden}
 <div class="wrap">
   <header>
     <h1>일본어 암기<small id="bookName"></small></h1>
-    <div class="hright"><span class="dday" id="dday"></span><button class="ghost" data-act="bookLoad">＋ 파일 추가</button></div>
+    <div class="hright"><span class="dday" id="dday"></span><button class="ghost" data-act="bookLoad"><i data-ic="plus"></i>파일 추가</button></div>
   </header>
 
   <nav class="tabs" role="tablist">
@@ -496,9 +528,9 @@ body.studying>.wrap{visibility:hidden}
       </div>
       <div class="col">
         <div class="minis">
-          <button class="mode mini weak" data-mode="weak"><i class="mi">!</i><b>약한 것만</b><span id="nWeak"></span></button>
-          <button class="mode mini conf" data-mode="confuse"><i class="mi">⇄</i><b>헷갈리는 것</b><span id="nConf"></span></button>
-          <button class="mode mini fav" data-mode="star"><i class="mi">★</i><b>별표만</b><span id="nStar"></span></button>
+          <button class="mode mini weak" data-mode="weak"><i class="mi" data-ic="alert"></i><b>약한 것만</b><span id="nWeak"></span></button>
+          <button class="mode mini conf" data-mode="confuse"><i class="mi" data-ic="swap"></i><b>헷갈리는 것</b><span id="nConf"></span></button>
+          <button class="mode mini fav" data-mode="star"><i class="mi" data-ic="star"></i><b>별표만</b><span id="nStar"></span></button>
         </div>
         <div class="panel">
           <h2>과별 진도</h2>
@@ -524,7 +556,7 @@ body.studying>.wrap{visibility:hidden}
   <section class="page" id="p-weak" hidden>
     <div class="seg" id="weakSeg">
       <button data-v="weak">약한 것</button>
-      <button data-v="star">★ 별표</button>
+      <button data-v="star">별표</button>
       <button data-v="pairs">헷갈리는 것</button>
       <button data-v="all">많이 틀린 순</button>
     </div>
@@ -574,7 +606,7 @@ body.studying>.wrap{visibility:hidden}
           <h2>교과서</h2>
           <p class="hint" id="bookInfo" style="margin-bottom:14px"></p>
           <div class="two">
-            <button class="go line" data-act="bookLoad">＋ 파일 추가</button>
+            <button class="go line" data-act="bookLoad"><i data-ic="plus"></i>파일 추가</button>
             <button class="go line" id="bookClear">단어 전부 지우기</button>
           </div>
           <input type="file" id="bookFile" hidden>
@@ -608,6 +640,17 @@ body.studying>.wrap{visibility:hidden}
 <script>
 'use strict';
 const $ = s => document.querySelector(s);
+
+/* 아이콘: SF Symbols처럼 가는 선 (글자색을 따라가요). 별은 눌린 상태에서 채워져요 */
+const ICONS = {
+  speaker: '<path d="M4 9.5h3.2L12 5.5v13l-4.8-4H4z" fill="currentColor" stroke-width="1.6"/><path d="M15.5 9a4 4 0 0 1 0 6"/><path d="M18.3 6.3a8 8 0 0 1 0 11.4"/>',
+  star: '<path d="m12 3.6 2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z"/>',
+  alert: '<path d="M12 6.5v7"/><circle cx="12" cy="17.6" r=".6" fill="currentColor"/>',
+  swap: '<path d="M7.5 4.5 4 8l3.5 3.5"/><path d="M4 8h15"/><path d="m16.5 12.5 3.5 3.5-3.5 3.5"/><path d="M20 16H5"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>'
+};
+const ic = n => `<svg class="ico ico-${n}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
+document.querySelectorAll('[data-ic]').forEach(e => e.innerHTML = ic(e.dataset.ic));
 
 /* 애플 둥근 네모(C): 곡률이 끊기지 않는 모서리를 SVG 경로로 그려 clip-path로 잘라요.
    Figma "corner smoothing" 60%(iOS)와 같은 계산. 반지름은 CSS의 border-radius를 그대로 써요 */
@@ -1089,7 +1132,7 @@ function renderRead() {
       return `<div class="dline"><div class="who jp">${esc(ln.who || '')}</div><div>
         <div class="ja jp">${esc(ln.ja)}</div>${readKana && ln.kana ? `<div class="kana jp">${esc(ln.kana)}</div>` : ''}
         <div class="ko${show ? '' : ' hide'}" data-id="${id}">${esc([].concat(ln.ko || []).join(' / '))}</div></div>
-        <button class="say" data-say="${esc(ln.ja)}" aria-label="발음 듣기">🔊</button></div>`;
+        <button class="say" data-say="${esc(ln.ja)}" aria-label="발음 듣기">${ic('speaker')}</button></div>`;
     }).join('')}</div>`).join('');
   $('#readBody').querySelectorAll('.ko.hide').forEach(e => e.onclick = () => { revealed.add(e.dataset.id); e.classList.remove('hide'); });
   $('#readBody').querySelectorAll('.say').forEach(b => b.onclick = () => speak(b.dataset.say));
@@ -1117,7 +1160,7 @@ function renderWeak() {
     const pairsHTML = ps.length ? `<h2 class="sec">헷갈리는 짝 <small>짝 ${ps.length}쌍${done ? ` · 다 외운 짝 ${done}쌍` : ''}</small></h2>
       <button class="go" id="weakGo" style="margin-bottom:12px">짝 이어서 외우기</button>
       <p class="hint" style="margin-bottom:12px">두 단어를 각각 3번 연속 맞히면 빠져요.</p><div class="list">` +
-      ps.map(p => `<div class="item pairrow">${one(BY_ID[p.a])}<span class="vs">↔</span>${one(BY_ID[p.b])}<div class="cnt">${PAIR_WHY[p.why]}${p.n ? `<br><b>${p.n}번</b>` : ''}</div></div>`).join('') + '</div>' : '';
+      ps.map(p => `<div class="item pairrow">${one(BY_ID[p.a])}<span class="vs">${ic('swap')}</span>${one(BY_ID[p.b])}<div class="cnt">${PAIR_WHY[p.why]}${p.n ? `<br><b>${p.n}번</b>` : ''}</div></div>`).join('') + '</div>' : '';
     $('#weakBody').innerHTML = groupsHTML + pairsHTML || '<p class="empty">헷갈리는 것이 없어요. 다 외웠어요!</p>';
     if ($('#weakGo')) $('#weakGo').onclick = () => start('confuse');
     $('#weakBody').querySelectorAll('[data-g]').forEach(b => b.onclick = () => start('group:' + b.dataset.g));
@@ -1125,13 +1168,13 @@ function renderWeak() {
   }
   let list = ITEMS.filter(i => weakView === 'weak' ? isWeak(i.id) : weakView === 'star' ? isStar(i.id) : (DB.stats[i.id]?.bad || 0) > 0);
   list.sort((a, b) => (DB.stats[b.id]?.bad || 0) - (DB.stats[a.id]?.bad || 0));
-  if (!list.length) { $('#weakBody').innerHTML = `<p class="empty">${weakView === 'star' ? '별표한 게 없어요. 공부할 때 카드의 ☆를 누르면 여기 모여요.' : '아직 없어요. 잘하고 있어요!'}</p>`; return; }
+  if (!list.length) { $('#weakBody').innerHTML = `<p class="empty">${weakView === 'star' ? '별표한 게 없어요. 공부할 때 카드의 별을 누르면 여기 모여요.' : '아직 없어요. 잘하고 있어요!'}</p>`; return; }
   $('#weakBody').innerHTML = `<button class="go" id="weakGo" style="margin-bottom:16px">이 ${list.length}개 외우기</button><div class="list">` + list.map(it => {
     const s = DB.stats[it.id] || {};
     return `<div class="item"><div><div class="ja jp">${esc(it.ja)}</div>${it.kana ? `<div class="kana jp">${esc(it.kana)}</div>` : ''}
       <div class="ko">${esc(it.ko.join(' / '))}</div><div class="hint">${esc(lessonName(it.lesson))}${it.kind === 'd' ? ' · 다이얼로그' : ''}</div></div>
       <div class="cnt">틀림 <b>${s.bad || 0}</b><br>맞음 ${s.ok || 0}</div>
-      <button class="star" data-id="${esc(it.id)}" aria-pressed="${isStar(it.id)}" aria-label="별표">★</button></div>`;
+      <button class="star" data-id="${esc(it.id)}" aria-pressed="${isStar(it.id)}" aria-label="별표">${ic('star')}</button></div>`;
   }).join('') + '</div>';
   $('#weakGo').onclick = () => runSession(shuffle(list.slice()));
   $('#weakBody').querySelectorAll('.star').forEach(b => b.onclick = () => { const s = st(b.dataset.id); s.star = !s.star; save(); renderWeak(); });
@@ -1146,7 +1189,7 @@ function renderSet() {
   const dark = document.documentElement.style.colorScheme === 'dark';
   // 기본 색 + 내가 추가한 색(c:#hex) + 추가 버튼. 내가 추가한 색은 고른 상태에서 한 번 더 누르면 지울 수 있어요
   const swBtn = (key, cur, color, name, mine) => `<button class="sw${mine ? ' mine' : ''}" data-k="${key}" aria-pressed="${cur === key}"><i style="background:${color}"></i>${name}</button>`;
-  const addBtn = id => `<button class="sw add" data-add="${id}"><i>＋</i>추가</button>`;
+  const addBtn = id => `<button class="sw add" data-add="${id}"><i>${ic('plus')}</i>추가</button>`;
   $('#bgSw').innerHTML = Object.entries(LOOK.bg).map(([k, v]) => swBtn(k, S.bg || 'paper', v[dark ? 'd' : 'l'][0], v.name)).join('') +
     (S.customBgs || []).map(h => swBtn('c:' + h, S.bg, bgOf('c:' + h)[dark ? 'd' : 'l'][0], '내 색', true)).join('') + addBtn('bgPick');
   $('#accentSw').innerHTML = Object.entries(LOOK.accent).map(([k, v]) => swBtn(k, S.accent || 'indigo', v.c[dark ? 2 : 0], v.name)).join('') +
@@ -1361,11 +1404,11 @@ function cardTop(it) {
   const ctx = p ? `<div class="ctx${pk ? '' : ' jp'}">${esc(p.who ? p.who + ': ' : '')}${esc(pk ? p.ko.join(' / ') : p.ja)}</div>` : '';
   const who = it.kind === 'd' && it.who ? `<div class="who jp">${esc(it.who)}</div>` : '';
   return `<div class="corner l"><span class="badge">${it.kind === 'k' ? (it.script === 'h' ? '히라가나' : '가타카나') + ' · ' + KANA_SETS[it.set] : esc(lessonLabel(it.lesson))}${it.kind === 'd' ? ' · ' + esc(it.dlg) : ''}</span>${isWeak(it.id) ? '<span class="badge red">약한 것</span>' : ''}${isHard(it) ? '<span class="badge warn">특히 헷갈림</span>' : ''}</div>
-    <div class="corner r">${S.dir === 'kj' ? '' : '<button class="say" data-act="say" aria-label="발음 듣기">🔊</button>'}<button class="star" data-act="star" aria-pressed="${isStar(it.id)}" aria-label="별표">★</button></div>
+    <div class="corner r">${S.dir === 'kj' ? '' : `<button class="say" data-act="say" aria-label="발음 듣기">${ic('speaker')}</button>`}<button class="star" data-act="star" aria-pressed="${isStar(it.id)}" aria-label="별표">${ic('star')}</button></div>
     ${ctx}${who}`;
 }
 function bindCorner(root, it) {
-  // 한국어 → 일본어일 때는 정답이 들리지 않게 🔊를 숨겨요 (답한 뒤 결과 칸에서 들을 수 있어요)
+  // 한국어 → 일본어일 때는 정답이 들리지 않게 발음 버튼을 숨겨요 (답한 뒤 결과 칸에서 들을 수 있어요)
   const sayBtn = root.querySelector('[data-act="say"]');
   if (sayBtn) sayBtn.onclick = e => { e.stopPropagation(); speak(it.ja); };
   const sb = root.querySelector('[data-act="star"]');
@@ -1423,7 +1466,7 @@ function showCard(it) {
     if (!moved) { flip(); card.style.transform = ''; return; }
     if (dy > KNOW()) return out(true);                 // 끝까지 내리고 뗌 → 알아요
     if (armed || dy < -NOPE()) return out(false);      // 내렸다가 다시 올림 / 위로 올림 → 몰라요
-    card.style.transition = 'transform .2s'; card.style.transform = '';
+    card.style.transition = 'transform .38s var(--spring)'; card.style.transform = '';
   };
   card.addEventListener('pointerup', up);
   card.addEventListener('pointercancel', up);
@@ -1466,7 +1509,7 @@ function showInput(it) {
         <div class="res ${final ? 'ok' : 'bad'}"><span class="lbl">${final ? '정답!' : maybe ? (label || '확인해 주세요') : '틀렸어요'}</span>
           <div class="main${toJa ? ' jp' : ''}${long}">${esc(main)}</div>
           ${reading ? `<div class="reading jp">${esc(reading)}</div>` : ''}
-          ${toJa ? `<div class="pron">${pr ? `<span>발음 <b>${esc(pr.ko)}</b> · ${esc(pr.ro)}</span>` : ''}<button class="say" id="rSay" aria-label="발음 듣기">🔊</button></div>` : ''}
+          ${toJa ? `<div class="pron">${pr ? `<span>발음 <b>${esc(pr.ko)}</b> · ${esc(pr.ro)}</span>` : ''}<button class="say" id="rSay" aria-label="발음 듣기">${ic('speaker')}</button></div>` : ''}
           ${heard != null ? `<span class="heard">${pen ? '인식한 글자' : '쓴 답'}: ${esc(heard || '(없음)')}</span>` : ''}
           ${partnerHTML(it)}${groupHTML(it)}</div>
         <div class="two">${maybe || !final ? `<button class="go line" id="rFix">${maybe ? '맞았어요' : '사실 맞았어요'}</button>` : '<span></span>'}<button class="go" id="rNext">${maybe ? '틀렸어요' : '다음'}</button></div></div>`;
