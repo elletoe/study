@@ -876,11 +876,13 @@ function cardTop(it) {
   const ctx = p ? `<div class="ctx${pk ? '' : ' jp'}">${esc(p.who ? p.who + ': ' : '')}${esc(pk ? p.ko.join(' / ') : p.ja)}</div>` : '';
   const who = it.kind === 'd' && it.who ? `<div class="who jp">${esc(it.who)}</div>` : '';
   return `<div class="corner l"><span class="badge">${it.kind === 'k' ? (it.script === 'h' ? '히라가나' : '가타카나') + ' · ' + KANA_SETS[it.set] : esc(lessonLabel(it.lesson))}${it.kind === 'd' ? ' · ' + esc(it.dlg) : ''}</span>${isWeak(it.id) ? '<span class="badge red">약한 것</span>' : ''}</div>
-    <div class="corner r"><button class="say" data-act="say" aria-label="발음 듣기">🔊</button><button class="star" data-act="star" aria-pressed="${isStar(it.id)}" aria-label="별표">★</button></div>
+    <div class="corner r">${S.dir === 'kj' ? '' : '<button class="say" data-act="say" aria-label="발음 듣기">🔊</button>'}<button class="star" data-act="star" aria-pressed="${isStar(it.id)}" aria-label="별표">★</button></div>
     ${ctx}${who}`;
 }
 function bindCorner(root, it) {
-  root.querySelector('[data-act="say"]').onclick = e => { e.stopPropagation(); speak(it.ja); };
+  // 한국어 → 일본어일 때는 정답이 들리지 않게 🔊를 숨겨요 (답한 뒤 결과 칸에서 들을 수 있어요)
+  const sayBtn = root.querySelector('[data-act="say"]');
+  if (sayBtn) sayBtn.onclick = e => { e.stopPropagation(); speak(it.ja); };
   const sb = root.querySelector('[data-act="star"]');
   sb.onclick = e => { e.stopPropagation(); const s = st(it.id); s.star = !s.star; save(); sb.setAttribute('aria-pressed', s.star); };
   root.querySelectorAll('[data-act]').forEach(b => b.addEventListener('pointerdown', e => e.stopPropagation()));
