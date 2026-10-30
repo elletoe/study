@@ -59,6 +59,7 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 
 header{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
 header h1{margin:0;font-size:24px;font-weight:900;letter-spacing:-0.02em}
+.hright{display:flex;align-items:center;gap:12px}
 .dday{font-size:15px;font-weight:700;color:var(--sub)}
 .dday.near{color:var(--bad)}
 
@@ -201,7 +202,7 @@ header h1{margin:0;font-size:24px;font-weight:900;letter-spacing:-0.02em}
 <div class="wrap">
   <header>
     <h1>일본어 암기</h1>
-    <span class="dday" id="dday"></span>
+    <div class="hright"><span class="dday" id="dday"></span><button class="ghost" data-act="bookLoad">＋ 파일 추가</button></div>
   </header>
 
   <nav class="tabs" role="tablist">
@@ -213,7 +214,7 @@ header h1{margin:0;font-size:24px;font-weight:900;letter-spacing:-0.02em}
 
   <!-- 외우기 -->
   <section class="page" id="p-home">
-    <div class="empty" id="noData" hidden>교과서 내용이 아직 들어가지 않았어요.<br>받은 <b>교과서 파일(.json)</b>을 한 번만 불러오면 계속 들어 있어요.
+    <div class="empty" id="noData" hidden>교과서 내용이 아직 들어가지 않았어요.<br>받은 <b>교과서 파일(.json)</b>을 한 번만 불러오면 계속 들어 있어요. 단어 파일은 언제든 위의 <b>＋ 파일 추가</b>로 더 넣을 수 있어요.
       <button class="go" data-act="bookLoad" style="margin-top:14px">교과서 불러오기</button></div>
     <div class="banner" id="examBanner" hidden></div>
     <div class="cols">
@@ -307,8 +308,8 @@ header h1{margin:0;font-size:24px;font-weight:900;letter-spacing:-0.02em}
           <b>교과서</b>
           <p class="hint" id="bookInfo"></p>
           <div class="two">
-            <button class="go line" data-act="bookLoad">교과서 불러오기</button>
-            <button class="go line" id="bookClear">교과서 지우기</button>
+            <button class="go line" data-act="bookLoad">＋ 파일 추가</button>
+            <button class="go line" id="bookClear">단어 전부 지우기</button>
           </div>
           <input type="file" id="bookFile" hidden>
         </div>
@@ -371,7 +372,9 @@ for (const L of LESSONS) {
   });
 }
 for (const it of ITEMS) BY_ID[it.id] = it;
-const lessonName = no => { const L = LESSONS.find(l => l.no === no); return L ? `${no}과` + (L.title ? ` ${L.title}` : '') : `${no}과`; };
+// 과 이름표: 파일에 label이 있으면 그걸 쓰고(예: "프린트 1"), 없으면 "N과"
+const lessonLabel = no => LESSONS.find(l => l.no === no)?.label || `${no}과`;
+const lessonName = no => { const L = LESSONS.find(l => l.no === no); return lessonLabel(no) + (L?.title ? ` ${L.title}` : ''); };
 
 /* ---------- 저장 ---------- */
 const KEY = 'jp-v1';
@@ -530,7 +533,7 @@ function renderHome() {
 
   const chips = $('#lessonChips');
   chips.innerHTML = `<button data-l="all" aria-pressed="${!S.lessons.length}">전체</button>` +
-    LESSONS.map(L => `<button data-l="${L.no}" aria-pressed="${S.lessons.includes(L.no)}">${L.no}과</button>`).join('');
+    LESSONS.map(L => `<button data-l="${L.no}" aria-pressed="${S.lessons.includes(L.no)}">${esc(lessonLabel(L.no))}</button>`).join('');
   chips.querySelectorAll('button').forEach(b => b.onclick = () => {
     if (b.dataset.l === 'all') S.lessons = [];
     else { const n = +b.dataset.l; S.lessons = S.lessons.includes(n) ? S.lessons.filter(x => x !== n) : [...S.lessons, n].sort((a, b) => a - b); }
@@ -570,7 +573,7 @@ function renderRead() {
   const withDlg = LESSONS.filter(L => (L.dialogues || []).length);
   if (!withDlg.length) { $('#readChips').innerHTML = ''; $('#readBody').innerHTML = '<p class="empty">다이얼로그가 아직 없어요.</p>'; return; }
   if (!withDlg.some(L => L.no === readLesson)) readLesson = withDlg[0].no;
-  $('#readChips').innerHTML = withDlg.map(L => `<button data-l="${L.no}" aria-pressed="${L.no === readLesson}">${L.no}과</button>`).join('');
+  $('#readChips').innerHTML = withDlg.map(L => `<button data-l="${L.no}" aria-pressed="${L.no === readLesson}">${esc(lessonLabel(L.no))}</button>`).join('');
   $('#readChips').querySelectorAll('button').forEach(b => b.onclick = () => { readLesson = +b.dataset.l; revealed.clear(); renderRead(); });
   $('#readKo').textContent = readKo ? '한국어 가리기' : '한국어 보이기';
   $('#readKana').textContent = readKana ? '읽는 법 숨기기' : '읽는 법 보이기';
@@ -635,16 +638,22 @@ $('#bookFile').onchange = async e => {
   if (!f) return;
   try {
     const j = JSON.parse(await f.text());
-    if (!Array.isArray(j?.lessons) || !j.lessons.length) throw 0;
-    localStorage.setItem(BOOK_KEY, JSON.stringify(j));
-    alert(`불러왔어요. ${j.lessons.length}과가 들어갔어요.`);
+    if (!Array.isArray(j?.lessons) || !j.lessons.length || j.lessons.some(l => typeof l?.no !== 'number')) throw 0;
+    // 지금 있는 내용에 더해요: 같은 과 번호는 새 내용으로 바꾸고, 새 번호는 추가 (공부 기록은 그대로)
+    const cur = saved?.lessons?.length ? saved : { book: j.book, lessons: [] };
+    const byNo = new Map(cur.lessons.map(l => [l.no, l]));
+    let added = 0, updated = 0;
+    for (const l of j.lessons) { byNo.has(l.no) ? updated++ : added++; byNo.set(l.no, l); }
+    const merged = { book: cur.book || j.book, lessons: [...byNo.values()].sort((a, b) => a.no - b.no) };
+    localStorage.setItem(BOOK_KEY, JSON.stringify(merged));
+    alert(`불러왔어요. ${added ? `새로 ${added}개` : ''}${added && updated ? ', ' : ''}${updated ? `바뀐 것 ${updated}개` : ''}`);
     location.reload();
-  } catch { alert('교과서 파일이 아니에요. 받은 .json 파일을 골라 주세요.'); }
+  } catch { alert('단어 파일이 아니에요. 받은 .json 파일을 골라 주세요.'); }
 };
 let clearArm = 0;
 $('#bookClear').onclick = () => {
   const b = $('#bookClear');
-  if (Date.now() - clearArm > 3000) { clearArm = Date.now(); b.textContent = '한 번 더 누르면 지워져요'; setTimeout(() => b.textContent = '교과서 지우기', 3000); return; }
+  if (Date.now() - clearArm > 3000) { clearArm = Date.now(); b.textContent = '한 번 더 누르면 지워져요'; setTimeout(() => b.textContent = '단어 전부 지우기', 3000); return; }
   try { localStorage.removeItem(BOOK_KEY); } catch {}
   location.reload();
 };
@@ -742,7 +751,7 @@ function face(it) {
 function cardTop(it) {
   const ctx = it.kind === 'd' && it.prev ? `<div class="ctx jp">${esc(it.prev.who ? it.prev.who + ': ' : '')}${esc(it.prev.ja)}</div>` : '';
   const who = it.kind === 'd' && it.who ? `<div class="who jp">${esc(it.who)}</div>` : '';
-  return `<div class="corner l"><span class="badge">${it.lesson}과${it.kind === 'd' ? ' · ' + esc(it.dlg) : ''}</span>${isWeak(it.id) ? '<span class="badge red">약한 것</span>' : ''}</div>
+  return `<div class="corner l"><span class="badge">${esc(lessonLabel(it.lesson))}${it.kind === 'd' ? ' · ' + esc(it.dlg) : ''}</span>${isWeak(it.id) ? '<span class="badge red">약한 것</span>' : ''}</div>
     <div class="corner r"><button class="say" data-act="say" aria-label="발음 듣기">🔊</button><button class="star" data-act="star" aria-pressed="${isStar(it.id)}" aria-label="별표">★</button></div>
     ${ctx}${who}`;
 }
