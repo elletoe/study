@@ -215,6 +215,9 @@ header h1 small{display:block;font-size:14px;font-weight:500;color:var(--sub);le
 .stop .prog i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .2s}
 .stop span{font-size:15px;font-weight:600;color:var(--sub);font-variant-numeric:tabular-nums;white-space:nowrap}
 .stage{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:16px;max-width:840px;width:100%;margin:0 auto;padding:2px 2px 8px}
+/* 내용이 짧으면 화면 세로 가운데에 와요 (넘치면 위에서부터 스크롤) */
+.stage>:first-child{margin-top:auto}
+.stage>:last-child{margin-bottom:auto}
 .cardwrap{position:relative;flex:1;min-height:220px;display:flex}
 .card{position:relative;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:64px 32px 32px;border:none;border-radius:24px;background:var(--surface);box-shadow:var(--shadow);text-align:center;touch-action:none;user-select:none;-webkit-user-select:none;will-change:transform}
 .card.weak{box-shadow:var(--shadow),inset 0 0 0 2px var(--bad)}
@@ -1088,11 +1091,12 @@ function showInput(it) {
   const nBox = Math.max(it.kind === 'd' ? 36 : it.kind === 'k' ? 4 : 18, Math.max(...targets.map(t => Array.from(t).length), 1) + 1);
   const pad = $('#pad'), cv = $('#cv'), ctx = cv.getContext('2d');
   const strokes = [];
-  let cur = null, t0 = 0, box = 84, cols = 1, grid = null, ink = '#111', inkW = 4;
+  let cur = null, t0 = 0, box = 84, cols = 1, off = 0, grid = null, ink = '#111', inkW = 4;
   const layout = () => {
     const W = pad.clientWidth;
     cols = Math.max(1, Math.floor(W / 84));
     if (nBox < cols) { cols = nBox; box = Math.min(120, Math.floor(W / cols)); } else box = Math.floor(W / cols);
+    off = Math.floor((W - cols * box) / 2);   // 칸을 가운데로
     pad.style.height = Math.ceil(nBox / cols) * box + 'px';
     const dpr = window.devicePixelRatio || 1;
     cv.width = W * dpr; cv.height = Math.ceil(nBox / cols) * box * dpr;
@@ -1108,7 +1112,7 @@ function showInput(it) {
   const drawGrid = ctx => {
     // 칸은 연한 바탕 + 회색 테두리로 또렷하게, 가운데 점선은 더 연하게
     for (let i = 0; i < nBox; i++) {
-      const x = (i % cols) * box, y = Math.floor(i / cols) * box;
+      const x = off + (i % cols) * box, y = Math.floor(i / cols) * box;
       ctx.setLineDash([]); ctx.fillStyle = css('--soft'); ctx.fillRect(x + 4, y + 4, box - 8, box - 8);
       ctx.strokeStyle = css('--sub'); ctx.globalAlpha = 0.55; ctx.lineWidth = 1.5; ctx.strokeRect(x + 4, y + 4, box - 8, box - 8);
       ctx.globalAlpha = 0.3; ctx.lineWidth = 1; ctx.setLineDash([4, 5]); ctx.beginPath();
@@ -1180,8 +1184,8 @@ function showInput(it) {
     const cells = new Map();
     for (const s of strokes) {
       const cx = (Math.min(...s.x) + Math.max(...s.x)) / 2, cy = (Math.min(...s.y) + Math.max(...s.y)) / 2;
-      const i = Math.min(nBox - 1, Math.floor(cy / box) * cols + Math.min(cols - 1, Math.max(0, Math.floor(cx / box))));
-      const ox = (i % cols) * box, oy = Math.floor(i / cols) * box;
+      const i = Math.min(nBox - 1, Math.floor(cy / box) * cols + Math.min(cols - 1, Math.max(0, Math.floor((cx - off) / box))));
+      const ox = off + (i % cols) * box, oy = Math.floor(i / cols) * box;
       if (!cells.has(i)) cells.set(i, []);
       cells.get(i).push({ x: s.x.map(v => v - ox), y: s.y.map(v => v - oy), t: s.t });
     }
