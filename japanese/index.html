@@ -86,9 +86,12 @@ function applyLook(s) {
   if (link && href && link.href !== href) link.href = href; else if (link && !href) link.removeAttribute('href');
   document.documentElement.dataset.shape = s.shape || 'apple';
   const meta = document.getElementById('themeColor'); if (meta) meta.content = p[0];
+  window.sqRefresh?.();
 }
 try { applyLook(JSON.parse(localStorage.getItem('jp-v1') || '{}').settings || {}); } catch { applyLook({}); }
 applyPhoto();
+/* 둥근 네모를 CSS로 그릴 수 있는지 (지금 아이패드 사파리는 svg) */
+document.documentElement.dataset.sq = CSS.supports('corner-shape', 'squircle') ? 'native' : 'svg';
 </script>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -394,6 +397,20 @@ header h1 small{display:block;font-size:14px;font-weight:500;color:var(--sub);le
 /* ④ 눌림 반응: 옅은 버튼은 살짝 더 진하게 */
 [data-shape="apple"] .chips button:active,[data-shape="apple"] .go.line:active,[data-shape="apple"] .padbar button:active{filter:brightness(.88)}
 
+/* ───── 애플 둥근 네모 ─────
+   A. 동심 모서리: 안쪽 모서리 = 바깥 모서리 − 여백 (WWDC25 Liquid Glass 규칙). 너무 각지지 않게 최소 10px
+   B. corner-shape를 아는 브라우저는 CSS로 연속 곡률(스퀘어클)
+   C. 아이패드 사파리처럼 모르는 브라우저는 아래 script의 SVG 경로로 잘라요 */
+:root[data-shape="apple"]{--r:22px;--pad:16px;--r-in:max(10px, calc(var(--r) - var(--pad)))}
+[data-shape="apple"] .panel{padding:14px var(--pad) var(--pad)}
+[data-shape="apple"] .mode{padding:var(--pad)}
+[data-shape="apple"] .tabs{border-radius:12px}
+[data-shape="apple"] .tabs button{border-radius:10px}
+[data-shape="apple"] :is(.seg,.go,.field input,.lgrid li,.fonts button,.del,.padbar button,.res,.mode span.ic){border-radius:var(--r-in)}
+[data-shape="apple"] .seg button{border-radius:calc(var(--r-in) - 2px)}
+[data-shape="apple"] :is(.card,.pad){border-radius:28px}
+[data-sq="native"][data-shape="apple"] :is(.panel,.list,.empty,.banner,.dline,.mode,.tabs,.tabs button,.seg,.seg button,.go,.field input,.lgrid li,.fonts button,.del,.padbar button,.res,.mode span.ic,.card,.pad,.badge){corner-shape:superellipse(1.6)}
+
 /* ───── 배경 사진 + 유리 모양 (Liquid Glass 비슷하게: 흐림 + 반투명 + 빛 테두리) ───── */
 #bgPhoto{display:none}
 :root[data-photo="1"] #bgPhoto{display:block;position:fixed;inset:0;z-index:-1;background:var(--photo) center/cover no-repeat}
@@ -597,6 +614,35 @@ body.studying>.wrap{visibility:hidden}
 <script>
 'use strict';
 const $ = s => document.querySelector(s);
+
+/* 애플 둥근 네모(C): 곡률이 끊기지 않는 모서리를 SVG 경로로 그려 clip-path로 잘라요.
+   Figma "corner smoothing" 60%(iOS)와 같은 계산. 반지름은 CSS의 border-radius를 그대로 써요 */
+const SQ_SEL = '.panel,.list,.empty,.banner,.dline,.mode,.mode span.ic,.go,.lgrid li,.fonts button,.padbar button,.res,.card,.pad';
+function squirclePath(w, h, R, sm = .6) {
+  const rad = d => d * Math.PI / 180, budget = Math.min(w, h) / 2;
+  R = Math.min(R, budget); sm = Math.min(sm, budget / R - 1);
+  const p = Math.min((1 + sm) * R, budget), arcDeg = 90 * (1 - sm);
+  const arc = Math.sin(rad(arcDeg / 2)) * R * Math.SQRT2;
+  const c = R * Math.tan(rad((90 - arcDeg) / 4)) * Math.cos(rad(45 * sm)), d = c * Math.tan(rad(45 * sm));
+  const b = (p - arc - c - d) / 3, a = 2 * b, f = n => +n.toFixed(2);
+  const [A, AB, ABC, BC, C, D, X] = [a, a + b, a + b + c, b + c, c, d, arc].map(f);
+  return `M${f(w - p)} 0c${A} 0 ${AB} 0 ${ABC} ${D}a${f(R)} ${f(R)} 0 0 1 ${X} ${X}c${D} ${C} ${D} ${BC} ${D} ${ABC}`
+    + `L${w} ${f(h - p)}c0 ${A} 0 ${AB} ${-D} ${ABC}a${f(R)} ${f(R)} 0 0 1 ${-X} ${X}c${-C} ${D} ${-BC} ${D} ${-ABC} ${D}`
+    + `L${f(p)} ${h}c${-A} 0 ${-AB} 0 ${-ABC} ${-D}a${f(R)} ${f(R)} 0 0 1 ${-X} ${-X}c${-D} ${-C} ${-D} ${-BC} ${-D} ${-ABC}`
+    + `L0 ${f(p)}c0 ${-A} 0 ${-AB} ${D} ${-ABC}a${f(R)} ${f(R)} 0 0 1 ${X} ${-X}c${C} ${-D} ${BC} ${-D} ${ABC} ${-D}Z`;
+}
+const sqOn = () => document.documentElement.dataset.sq === 'svg' && document.documentElement.dataset.shape === 'apple';
+function clipSquircle(el) {
+  const w = el.offsetWidth, h = el.offsetHeight, r = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0;
+  el.style.clipPath = sqOn() && w && h && r && r < Math.min(w, h) / 2 ? `path('${squirclePath(w, h, r)}')` : '';
+}
+if (document.documentElement.dataset.sq === 'svg' && window.ResizeObserver) {
+  const ro = new ResizeObserver(es => es.forEach(e => clipSquircle(e.target)));
+  const watch = root => { if (root.matches?.(SQ_SEL)) ro.observe(root); root.querySelectorAll?.(SQ_SEL).forEach(el => ro.observe(el)); };
+  new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => n.nodeType === 1 && watch(n)))).observe(document.body, { childList: true, subtree: true });
+  watch(document.body);
+  window.sqRefresh = () => document.querySelectorAll(SQ_SEL).forEach(clipSquircle);
+}
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
