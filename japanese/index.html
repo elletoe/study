@@ -81,6 +81,7 @@ header h1{margin:0;font-size:24px;font-weight:900;letter-spacing:-0.02em}
 .seg{display:grid;grid-auto-columns:1fr;grid-auto-flow:column;gap:6px;background:var(--soft);border-radius:14px;padding:4px}
 .seg button{height:46px;border:none;background:transparent;border-radius:11px;font-size:16px;font-weight:700;color:var(--sub)}
 .seg button[aria-pressed="true"]{background:var(--raised);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.seg button:disabled{opacity:.35}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chips button{min-height:42px;padding:0 16px;border:1px solid var(--line);border-radius:99px;background:var(--bg);font-size:15px;font-weight:700}
 .chips button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
@@ -563,16 +564,19 @@ function render() {
 }
 
 /* ---------- 외우기 홈 ---------- */
+// 한국어로 답할 때(일→한)는 손글씨를 안 써요. 손글씨를 골라 뒀으면 자판으로 해요
+const method = () => S.method === 'pen' && S.dir === 'jk' ? 'type' : S.method;
 const METHOD_HINT = {
   card: '카드를 눌러 뒤집고, 아래 끝까지 내리면 알아요. 내렸다가 다시 올리거나 그냥 넘기면 몰라요 — 뒤에서 다시 나와요.',
-  pen: '애플펜슬로 쓰면 AI가 읽어서 채점해요. 인터넷이 필요해요.',
+  pen: '애플펜슬로 칸에 한 글자씩 일본어를 쓰면 AI가 읽어서 채점해요. 인터넷이 필요해요.',
   type: '키보드로 쳐요. 일본어는 로마자로 쳐도 돼요 (taberu → たべる).'
 };
 function renderHome() {
   $('#noData').hidden = ITEMS.length > 0;
   document.querySelectorAll('.mode').forEach(b => b.disabled = !ITEMS.length);
-  segShow($('#dirSeg'), S.dir); segShow($('#methodSeg'), S.method); segShow($('#sizeSeg'), S.size);
-  $('#methodHint').textContent = METHOD_HINT[S.method];
+  segShow($('#dirSeg'), S.dir); segShow($('#methodSeg'), method()); segShow($('#sizeSeg'), S.size);
+  $('#methodSeg [data-v="pen"]').disabled = S.dir === 'jk';
+  $('#methodHint').textContent = S.dir === 'jk' && S.method === 'pen' ? '한국어로 답할 때는 손글씨 대신 키보드로 한국어 뜻을 쳐요. 한국어 → 일본어로 바꾸면 다시 손글씨로 해요.' : METHOD_HINT[method()];
 
   const chips = $('#lessonChips');
   chips.innerHTML = `<button data-l="all" aria-pressed="${!S.lessons.length}">전체</button>` +
@@ -768,7 +772,7 @@ function next() {
   progress();
   const it = SES.queue[0];
   if (!it) return showDone();
-  if (S.method === 'card') showCard(it);
+  if (method() === 'card') showCard(it);
   else showInput(it);
 }
 
@@ -870,7 +874,7 @@ function showCard(it) {
 
 /* ----- 손글씨 · 자판 ----- */
 function showInput(it) {
-  const f = face(it), pen = S.method === 'pen', toJa = S.dir === 'kj';
+  const f = face(it), pen = method() === 'pen', toJa = S.dir === 'kj';
   $('#stage').innerHTML = `
     <div class="cardwrap" style="flex:0 1 auto;min-height:180px"><div class="card${isWeak(it.id) ? ' weak' : ''}" id="card" style="touch-action:auto">${cardTop(it)}${f.q}</div></div>
     <div id="inArea">${pen ? `
@@ -920,9 +924,9 @@ function showInput(it) {
     return;
   }
 
-  /* 손글씨 판: 칸마다 한 글자씩 써요. 칸 수는 정답보다 2칸 넉넉하게 (길이가 힌트가 되지 않게) */
+  /* 손글씨 판: 칸마다 한 글자씩 써요. 칸 수는 고정 (단어 18칸, 문장 36칸) — 길이가 힌트가 되지 않게 */
   const targets = penTargets(it);
-  const nBox = Math.max(4, Math.max(...targets.map(t => Array.from(t).length), 1) + 2);
+  const nBox = Math.max(it.kind === 'd' ? 36 : 18, Math.max(...targets.map(t => Array.from(t).length), 1) + 1);
   const pad = $('#pad'), cv = $('#cv'), ctx = cv.getContext('2d');
   const strokes = [];
   let cur = null, t0 = 0, box = 84, cols = 1;
