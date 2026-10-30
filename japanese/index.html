@@ -192,6 +192,9 @@ header h1{margin:0;font-size:24px;font-weight:900;letter-spacing:-0.02em}
 .res .main.long{font-size:clamp(22px,3.4vw,34px)}
 .res .reading{font-size:20px;color:var(--ink);opacity:.75}
 .res span{font-size:15px;line-height:1.6}
+.res .pron{display:flex;align-items:center;gap:12px;color:var(--ink)}
+.res .pron span{font-size:18px}
+.res .pron b{font-size:20px}
 .res.ok{background:var(--good-bg);color:var(--good-ink)}
 .res.bad{background:var(--bad-bg);color:var(--bad)}
 .res .heard{color:var(--sub)}
@@ -257,6 +260,14 @@ header h1{margin:0;font-size:24px;font-weight:900;letter-spacing:-0.02em}
           <button class="mode main" data-mode="lines"><b>다이얼로그</b><span id="nLines"></span></button>
           <button class="mode weak" data-mode="weak"><b>약한 것만</b><span id="nWeak"></span></button>
           <button class="mode" data-mode="star"><b>⭐ 별표만</b><span id="nStar"></span></button>
+        </div>
+        <div>
+          <p class="label">히라가나·가타카나</p>
+          <div class="chips" id="kanaSets"></div>
+          <div class="modes" style="margin-top:12px">
+            <button class="mode kana" data-mode="hira"><b class="jp">あ 히라가나</b><span id="nHira"></span></button>
+            <button class="mode kana" data-mode="kata"><b class="jp">ア 가타카나</b><span id="nKata"></span></button>
+          </div>
         </div>
         <div>
           <p class="label">과별 진도</p>
@@ -377,14 +388,58 @@ for (const L of LESSONS) {
     });
   });
 }
+/* 히라가나·가타카나 (기본 탑재). 뜻 칸에는 한글 발음과 로마자를 넣어서 둘 중 하나로 답해도 돼요 */
+const KANA_SETS = { seion: '청음', daku: '탁음·반탁음', yoon: '요음' };
+const KANA_TABLE = {
+  seion: 'あ:a:아 い:i:이 う:u:우 え:e:에 お:o:오 か:ka:카 き:ki:키 く:ku:쿠 け:ke:케 こ:ko:코 さ:sa:사 し:shi/si:시 す:su:스 せ:se:세 そ:so:소 た:ta:타 ち:chi/ti:치 つ:tsu/tu:츠 て:te:테 と:to:토 な:na:나 に:ni:니 ぬ:nu:누 ね:ne:네 の:no:노 は:ha:하 ひ:hi:히 ふ:fu/hu:후 へ:he:헤 ほ:ho:호 ま:ma:마 み:mi:미 む:mu:무 め:me:메 も:mo:모 や:ya:야 ゆ:yu:유 よ:yo:요 ら:ra:라 り:ri:리 る:ru:루 れ:re:레 ろ:ro:로 わ:wa:와 を:wo/o:오 ん:n:응',
+  daku: 'が:ga:가 ぎ:gi:기 ぐ:gu:구 げ:ge:게 ご:go:고 ざ:za:자 じ:ji/zi:지 ず:zu:즈 ぜ:ze:제 ぞ:zo:조 だ:da:다 ぢ:di/ji/zi:지 づ:du/zu:즈 で:de:데 ど:do:도 ば:ba:바 び:bi:비 ぶ:bu:부 べ:be:베 ぼ:bo:보 ぱ:pa:파 ぴ:pi:피 ぷ:pu:푸 ぺ:pe:페 ぽ:po:포',
+  yoon: 'きゃ:kya:캬 きゅ:kyu:큐 きょ:kyo:쿄 ぎゃ:gya:갸 ぎゅ:gyu:규 ぎょ:gyo:교 しゃ:sha/sya:샤 しゅ:shu/syu:슈 しょ:sho/syo:쇼 じゃ:ja/zya:자 じゅ:ju/zyu:주 じょ:jo/zyo:조 ちゃ:cha/tya:차 ちゅ:chu/tyu:추 ちょ:cho/tyo:초 にゃ:nya:냐 にゅ:nyu:뉴 にょ:nyo:뇨 ひゃ:hya:햐 ひゅ:hyu:휴 ひょ:hyo:효 びゃ:bya:뱌 びゅ:byu:뷰 びょ:byo:뵤 ぴゃ:pya:퍄 ぴゅ:pyu:퓨 ぴょ:pyo:표 みゃ:mya:먀 みゅ:myu:뮤 みょ:myo:묘 りゃ:rya:랴 りゅ:ryu:류 りょ:ryo:료'
+};
+const toKata = s => s.replace(/[\u3041-\u3096]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60));
+const KMAP = {};   // 히라가나 → [로마자, 한글]
+for (const [set, txt] of Object.entries(KANA_TABLE)) {
+  for (const cell of txt.split(' ')) {
+    const [k, ro, ko] = cell.split(':'), ros = ro.split('/');
+    KMAP[k] = [ros[0], ko];
+    for (const sc of ['h', 'k']) {
+      const ja = sc === 'h' ? k : toKata(k);
+      ITEMS.push({ id: `k${sc}:${ja}`, kind: 'k', lesson: 0, script: sc, set, ja, kana: '', ko: [ko, ...ros] });
+    }
+  }
+}
+Object.assign(KMAP, { 'ぁ': ['a', '아'], 'ぃ': ['i', '이'], 'ぅ': ['u', '우'], 'ぇ': ['e', '에'], 'ぉ': ['o', '오'], 'ゃ': ['ya', '야'], 'ゅ': ['yu', '유'], 'ょ': ['yo', '요'], 'ゔ': ['vu', '부'] });
+/* 일본어 읽기를 한글 발음·로마자로 (っ는 앞 글자에 ㅅ받침, ん은 ㄴ받침) */
+const addJong = (str, j) => {
+  const c = str.charCodeAt(str.length - 1);
+  return c >= 0xAC00 && c <= 0xD7A3 && (c - 0xAC00) % 28 === 0 ? str.slice(0, -1) + String.fromCharCode(c + j) : str + (j === 4 ? '응' : '');
+};
+function pron(text) {
+  const s = toHira(String(text));
+  if (/[\u4e00-\u9fff]/.test(s)) return null;   // 한자는 읽는 법을 모르면 건너뛰어요
+  let ko = '', ro = '', sok = false;
+  for (let i = 0; i < s.length;) {
+    const two = KMAP[s.slice(i, i + 2)] && s.slice(i, i + 2), k = two || s[i];
+    i += two ? 2 : 1;
+    if (k === 'っ') { sok = true; ko = addJong(ko, 19); continue; }
+    if (k === 'ん') { ko = addJong(ko, 4); ro += 'n'; continue; }
+    if (k === 'ー') { ko += '-'; ro += '-'; continue; }
+    if (/\s/.test(k)) { ko += ' '; ro += ' '; continue; }
+    const m = KMAP[k];
+    if (!m) continue;
+    ro += (sok ? (m[0].startsWith('ch') ? 't' : m[0][0]) : '') + m[0]; sok = false;
+    ko += m[1];
+  }
+  return ko.trim() ? { ko: ko.trim(), ro: ro.trim() } : null;
+}
+
 for (const it of ITEMS) BY_ID[it.id] = it;
 // 과 이름표: 파일에 label이 있으면 그걸 쓰고(예: "프린트 1"), 없으면 "N과"
-const lessonLabel = no => LESSONS.find(l => l.no === no)?.label || `${no}과`;
+const lessonLabel = no => no === 0 ? '히라가나·가타카나' : LESSONS.find(l => l.no === no)?.label || `${no}과`;
 const lessonName = no => { const L = LESSONS.find(l => l.no === no); return lessonLabel(no) + (L?.title ? ` ${L.title}` : ''); };
 
 /* ---------- 저장 ---------- */
 const KEY = 'jp-v1';
-const DEF = { dir: 'jk', method: 'card', size: '20', lessons: [], examDate: '', autoSpeak: false, showKana: true, theme: 'auto' };
+const DEF = { kanaSets: ['seion', 'daku', 'yoon'], dir: 'jk', method: 'card', size: '20', lessons: [], examDate: '', autoSpeak: false, showKana: true, theme: 'auto' };
 let DB;
 try { DB = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { DB = {}; }
 DB.settings = Object.assign({}, DEF, DB.settings);
@@ -414,7 +469,7 @@ function record(id, ok) {
 /* ---------- 채점용 글자 정리 ---------- */
 const toHira = s => s.replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
 const normJa = s => toHira(String(s).normalize('NFKC').toLowerCase()).replace(/[\s、。，．,.・!?！？「」『』（）()…〜~―]/g, '').replace(/^[-ー]+/, '');
-const normKo = s => String(s).normalize('NFKC').replace(/\([^)]*\)/g, '').replace(/[\s.,!?~·'"…\-/]/g, '');
+const normKo = s => String(s).normalize('NFKC').toLowerCase().replace(/\([^)]*\)/g, '').replace(/[\s.,!?~·'"…\-/]/g, '');
 function answersOf(it) {
   // 지금 방향에서 정답이 될 수 있는 것들
   if (S.dir === 'jk') return it.ko.flatMap(k => [k, ...String(k).split(/[\/,·]/)]).map(normKo).filter(Boolean);
@@ -488,12 +543,14 @@ async function recognize(strokes, w, h, lang) {
 const SMALL = { 'ぁ': 'あ', 'ぃ': 'い', 'ぅ': 'う', 'ぇ': 'え', 'ぉ': 'お', 'っ': 'つ', 'ゃ': 'や', 'ゅ': 'ゆ', 'ょ': 'よ', 'ゎ': 'わ', 'ゕ': 'か', 'ゖ': 'け' };
 const looseJa = s => normJa(s).replace(/[ぁぃぅぇぉっゃゅょゎゕゖ]/g, c => SMALL[c]).replace(/[ー一ｰ－‐-]/g, 'ー');
 function penTargets(it) {
+  if (it.kind === 'k') return [it.ja];
   if (S.dir === 'kj') return [...new Set([it.ja, it.kana].filter(Boolean).map(looseJa))].filter(Boolean);
   return [...new Set(it.ko.flatMap(k => [k, ...String(k).split(/[\/,·]/)]).map(normKo))].filter(Boolean);
 }
 /* 칸마다 나온 후보로 정답과 맞춰 봐요. 칸 하나 = 정답 한 글자, 글자가 다르거나 빠지면 1점씩 */
-function gradePen(cands, targets, toJa) {
-  const norm = toJa ? looseJa : normKo;
+function gradePen(cands, targets, toJa, strict) {
+  // 가나 연습은 히라가나·가타카나를 구별해야 해서 있는 그대로 비교해요
+  const norm = !toJa ? normKo : strict ? (x => String(x).normalize('NFKC').replace(/[\s。、.]/g, '')) : looseJa;
   const opts = cands.map(cs => cs.map(norm));
   let best = { dist: Infinity, heard: '', near: false };
   for (const t of targets) {
@@ -576,8 +633,20 @@ const METHOD_HINT = {
   type: '키보드로 쳐요. 일본어는 로마자로 쳐도 돼요 (taberu → たべる).'
 };
 function renderHome() {
-  $('#noData').hidden = ITEMS.length > 0;
-  document.querySelectorAll('.mode').forEach(b => b.disabled = !ITEMS.length);
+  $('#noData').hidden = LESSONS.length > 0;
+  document.querySelectorAll('.mode:not(.kana)').forEach(b => b.disabled = !LESSONS.length);
+  const ks = $('#kanaSets');
+  ks.innerHTML = Object.entries(KANA_SETS).map(([k, v]) => `<button data-k="${k}" aria-pressed="${S.kanaSets.includes(k)}">${v}</button>`).join('');
+  ks.querySelectorAll('button').forEach(b => b.onclick = () => {
+    const k = b.dataset.k;
+    S.kanaSets = S.kanaSets.includes(k) ? S.kanaSets.filter(x => x !== k) : [...S.kanaSets, k];
+    save(); render();
+  });
+  for (const [sc, el] of [['h', '#nHira'], ['k', '#nKata']]) {
+    const its = ITEMS.filter(i => i.kind === 'k' && i.script === sc && S.kanaSets.includes(i.set));
+    $(el).textContent = `${its.length}자 · 외움 ${its.filter(i => isKnown(i.id)).length}`;
+    $(el).parentElement.disabled = !its.length;
+  }
   segShow($('#dirSeg'), S.dir); segShow($('#methodSeg'), method()); segShow($('#sizeSeg'), S.size);
   $('#methodSeg [data-v="pen"]').disabled = S.dir === 'jk';
   $('#methodHint').textContent = S.dir === 'jk' && S.method === 'pen' ? '한국어로 답할 때는 손글씨 대신 키보드로 한국어 뜻을 쳐요. 한국어 → 일본어로 바꾸면 다시 손글씨로 해요.' : METHOD_HINT[method()];
@@ -733,12 +802,13 @@ function start(mode) {
   else if (mode === 'weak') pool = ITEMS.filter(i => inScope(i) && isWeak(i.id));
   else if (mode === 'star') pool = ITEMS.filter(i => inScope(i) && isStar(i.id));
   else if (mode === 'weakAll') pool = ITEMS.filter(i => isWeak(i.id));
+  else if (mode === 'hira' || mode === 'kata') pool = ITEMS.filter(i => i.kind === 'k' && i.script === (mode === 'hira' ? 'h' : 'k') && S.kanaSets.includes(i.set));
   if (!pool.length) return;
   // 약한 것 → 처음 보는 것 → 오래전에 본 것 순서로 골라요
   const rank = i => isWeak(i.id) ? 0 : !DB.stats[i.id] ? 1 : 2;
   pool = shuffle(pool.slice()).sort((a, b) => rank(a) - rank(b) || (DB.stats[a.id]?.last || 0) - (DB.stats[b.id]?.last || 0));
   const n = +S.size;
-  if (n && (mode === 'words' || mode === 'lines')) pool = pool.slice(0, n);
+  if (n && ['words', 'lines', 'hira', 'kata'].includes(mode)) pool = pool.slice(0, n);
   runSession(shuffle(pool));
 }
 
@@ -793,8 +863,10 @@ function showDone() {
 /* 문제 쪽 / 정답 쪽 글자 */
 function face(it) {
   const jaSide = `<div class="q jp${it.kind === 'd' ? ' long' : ''}">${esc(it.ja)}</div>${S.showKana && it.kana && it.kana !== it.ja ? `<div class="qk jp">${esc(it.kana)}</div>` : ''}`;
-  const koSide = `<div class="q${it.kind === 'd' ? ' long' : ''}">${esc(it.ko.join(' / '))}</div>`;
-  const ansJa = `<b class="jp">${esc(it.ja)}</b>${it.kana && it.kana !== it.ja ? `<span class="jp">${esc(it.kana)}</span>` : ''}`;
+  // 가나 문제는 "오 (wo)"처럼: 같은 소리(お·を, じ·ぢ, ず·づ)를 로마자로 구별해요
+  const koSide = `<div class="q${it.kind === 'd' ? ' long' : ''}">${esc(it.kind === 'k' ? `${it.ko[0]} (${it.ko[1]})` : it.ko.join(' / '))}</div>`;
+  const pr = it.kind !== 'k' && pron(it.kana || it.ja);
+  const ansJa = `<b class="jp">${esc(it.ja)}</b>${it.kana && it.kana !== it.ja ? `<span class="jp">${esc(it.kana)}</span>` : ''}${pr ? `<span>발음 ${esc(pr.ko)} · ${esc(pr.ro)}</span>` : ''}`;
   const ansKo = `<b>${esc(it.ko.join(' / '))}</b>`;
   return S.dir === 'jk' ? { q: jaSide, a: ansKo } : { q: koSide, a: ansJa };
 }
@@ -803,7 +875,7 @@ function cardTop(it) {
   const p = it.kind === 'd' && it.prev, pk = S.dir === 'kj';
   const ctx = p ? `<div class="ctx${pk ? '' : ' jp'}">${esc(p.who ? p.who + ': ' : '')}${esc(pk ? p.ko.join(' / ') : p.ja)}</div>` : '';
   const who = it.kind === 'd' && it.who ? `<div class="who jp">${esc(it.who)}</div>` : '';
-  return `<div class="corner l"><span class="badge">${esc(lessonLabel(it.lesson))}${it.kind === 'd' ? ' · ' + esc(it.dlg) : ''}</span>${isWeak(it.id) ? '<span class="badge red">약한 것</span>' : ''}</div>
+  return `<div class="corner l"><span class="badge">${it.kind === 'k' ? (it.script === 'h' ? '히라가나' : '가타카나') + ' · ' + KANA_SETS[it.set] : esc(lessonLabel(it.lesson))}${it.kind === 'd' ? ' · ' + esc(it.dlg) : ''}</span>${isWeak(it.id) ? '<span class="badge red">약한 것</span>' : ''}</div>
     <div class="corner r"><button class="say" data-act="say" aria-label="발음 듣기">🔊</button><button class="star" data-act="star" aria-pressed="${isStar(it.id)}" aria-label="별표">★</button></div>
     ${ctx}${who}`;
 }
@@ -900,15 +972,18 @@ function showInput(it) {
     // 정답 단어를 크게, 맞았는지는 작게
     const main = toJa ? it.ja : it.ko.join(' / ');
     const reading = toJa && it.kana && it.kana !== it.ja ? it.kana : '';
+    const pr = toJa && (it.kind === 'k' ? { ko: it.ko[0], ro: it.ko.slice(1).join(' / ') } : pron(it.kana || it.ja));
     const long = it.kind === 'd' ? ' long' : '';
     const draw = () => {
       $('#resArea').innerHTML = `<div class="ans">
         <div class="res ${final ? 'ok' : 'bad'}"><span class="lbl">${final ? '정답!' : maybe ? (label || '확인해 주세요') : '틀렸어요'}</span>
           <div class="main${toJa ? ' jp' : ''}${long}">${esc(main)}</div>
           ${reading ? `<div class="reading jp">${esc(reading)}</div>` : ''}
+          ${toJa ? `<div class="pron">${pr ? `<span>발음 <b>${esc(pr.ko)}</b> · ${esc(pr.ro)}</span>` : ''}<button class="say" id="rSay" aria-label="발음 듣기">🔊</button></div>` : ''}
           ${heard != null ? `<span class="heard">${pen ? '인식한 글자' : '쓴 답'}: ${esc(heard || '(없음)')}</span>` : ''}</div>
         <div class="two">${maybe || !final ? `<button class="go line" id="rFix">${maybe ? '맞았어요' : '사실 맞았어요'}</button>` : '<span></span>'}<button class="go" id="rNext">${maybe ? '틀렸어요' : '다음'}</button></div></div>`;
       const fin = () => answer(it, final);
+      if ($('#rSay')) $('#rSay').onclick = () => speak(it.ja);
       $('#rNext').onclick = () => { if (maybe) final = false; fin(); };
       if ($('#rFix')) $('#rFix').onclick = () => { final = true; fin(); };
       if (final || maybe) $('#rNext').focus();
@@ -930,7 +1005,7 @@ function showInput(it) {
 
   /* 손글씨 판: 칸마다 한 글자씩 써요. 칸 수는 고정 (단어 18칸, 문장 36칸) — 길이가 힌트가 되지 않게 */
   const targets = penTargets(it);
-  const nBox = Math.max(it.kind === 'd' ? 36 : 18, Math.max(...targets.map(t => Array.from(t).length), 1) + 1);
+  const nBox = Math.max(it.kind === 'd' ? 36 : it.kind === 'k' ? 4 : 18, Math.max(...targets.map(t => Array.from(t).length), 1) + 1);
   const pad = $('#pad'), cv = $('#cv'), ctx = cv.getContext('2d');
   const strokes = [];
   let cur = null, t0 = 0, box = 84, cols = 1;
@@ -1002,7 +1077,7 @@ function showInput(it) {
     try {
       const order = [...cells.keys()].sort((a, b) => a - b);
       const cands = await Promise.all(order.map(i => recognize(cells.get(i), box, box, toJa ? 'ja' : 'ko')));
-      const g = gradePen(cands, targets, toJa);
+      const g = gradePen(cands, targets, toJa, it.kind === 'k');
       if (g.dist === 0) judge(true, g.heard);
       else if (g.near) judge(false, g.heard, true, '거의 맞았어요');
       else judge(false, g.heard);
