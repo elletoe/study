@@ -144,8 +144,10 @@ header h1 small{display:block;font-size:14px;font-weight:500;color:var(--sub);le
 .mode.main{background:var(--accent);color:var(--on-accent)}
 .mode.main span{color:var(--on-accent);opacity:.75}
 .mode:disabled{opacity:.45}
-.minis{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.mode.mini{min-height:0;flex-direction:row;align-items:center;justify-content:space-between;padding:16px 18px}
+.minis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.mode.mini.conf b{color:var(--warn)}
+.mode.mini{min-height:0;flex-direction:column;align-items:flex-start;justify-content:center;gap:4px;padding:14px 16px}
+.mode.mini b,.mode.mini span{white-space:nowrap}
 .mode.mini b{font-size:16px}
 .mode.mini span{margin:0;font-size:15px;font-weight:600;color:var(--ink)}
 .mode.mini.weak b{color:var(--bad)}
@@ -208,6 +210,8 @@ header h1 small{display:block;font-size:14px;font-weight:500;color:var(--sub);le
 .item .ko{font-size:15px;margin-top:2px}
 .item .cnt{font-size:13px;color:var(--sub);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .item .cnt b{color:var(--bad)}
+.item.pairrow{grid-template-columns:1fr auto 1fr auto}
+.item .vs{color:var(--sub);font-size:18px}
 .star{width:44px;height:44px;border:none;background:transparent;font-size:24px;color:var(--sub);opacity:.35;line-height:1}
 .star[aria-pressed="true"]{color:var(--star);opacity:1}
 
@@ -233,6 +237,9 @@ header h1 small{display:block;font-size:14px;font-weight:500;color:var(--sub);le
 .card .a{display:flex;flex-direction:column;gap:6px;padding-top:18px;border-top:1px dashed var(--line);width:100%}
 .card .a b{font-size:clamp(22px,3.6vw,36px);font-weight:600;line-height:1.4;overflow-wrap:anywhere}
 .card .a span{font-size:17px;color:var(--sub)}
+.pair{font-size:14px;line-height:1.6;color:var(--sub);margin-top:6px}
+.card .a .pair b,.res .pair b{font-size:16px;font-weight:600;color:var(--ink)}
+.pair small{font-size:12px}
 .card .tap{font-size:14px;color:var(--sub)}
 .card .corner{position:absolute;top:14px;display:flex;align-items:center;gap:6px}
 .card .corner.l{left:16px}.card .corner.r{right:12px}
@@ -338,6 +345,7 @@ header h1 small{display:block;font-size:14px;font-weight:500;color:var(--sub);le
       <div class="col">
         <div class="minis">
           <button class="mode mini weak" data-mode="weak"><b>약한 것만</b><span id="nWeak"></span></button>
+          <button class="mode mini conf" data-mode="confuse"><b>헷갈리는 것</b><span id="nConf"></span></button>
           <button class="mode mini" data-mode="star"><b>★ 별표만</b><span id="nStar"></span></button>
         </div>
         <div class="panel">
@@ -365,6 +373,7 @@ header h1 small{display:block;font-size:14px;font-weight:500;color:var(--sub);le
     <div class="seg" id="weakSeg">
       <button data-v="weak">약한 것</button>
       <button data-v="star">★ 별표</button>
+      <button data-v="pairs">헷갈리는 짝</button>
       <button data-v="all">많이 틀린 순</button>
     </div>
     <p class="hint">몰라요가 2번 이상이거나, 정답률이 60%보다 낮거나, 바로 전에 틀린 것이 약한 것이 돼요. 3번 연속 맞히면 빠져요.</p>
@@ -527,6 +536,7 @@ let DB;
 try { DB = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { DB = {}; }
 DB.settings = Object.assign({}, DEF, DB.settings);
 DB.stats = DB.stats || {};
+DB.pairs = DB.pairs || {};   // 내가 헷갈린 짝: { 'id1|id2': 횟수 }
 const S = DB.settings;
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch {} };
 const st = id => DB.stats[id] || (DB.stats[id] = { ok: 0, bad: 0, streak: 0, lastBad: false, star: false });
@@ -666,6 +676,78 @@ function gradePen(cands, targets, toJa, strict) {
   return best;
 }
 
+/* ---------- 헷갈리는 짝 ----------
+   ① 자동: 교과서 단어끼리 읽는 법을 비교해서 아래 기준에 걸리면 짝
+   ② 내 기록: 손글씨·자판으로 틀린 답이 다른 단어의 정답이면 그 둘을 짝으로 저장 */
+const PAIR_WHY = { daku: '탁점(゛゜)만 달라요', small: '작은 글자(っゃゅょ) 차이', extra: 'ん·っ·장음 하나 차이', look: '모양이 비슷한 글자', mean: '뜻이 같아요', mine: '내가 헷갈렸어요' };
+const readOf = it => toHira(it.kana || it.ja).replace(/[\s～〜・\-()（）]/g, '');
+const nodak = s => s.normalize('NFD').replace(/[\u3099\u309a]/g, '').normalize('NFC');
+const bigKana = s => s.replace(/[ぁぃぅぇぉっゃゅょゎ]/g, c => SMALL[c]);
+const LOOK_ALIKE = ['しつ', 'そん', 'ぬめ', 'るろ', 'われね', 'はほ', 'さち', 'いり', 'くけ', 'ちて', 'うわ', 'こゆ', 'のめ'];
+const lookKey = s => { for (const g of LOOK_ALIKE) for (const c of g.slice(1)) s = s.split(c).join(g[0]); return s; };
+const EXTRA_KANA = new Set('んっーあいうえお');   // 이 글자 하나만 더 있고 없고 = 발음(ん)·촉음(っ)·장음
+const oneExtra = (a, b) => {
+  if (a.length > b.length) [a, b] = [b, a];
+  if (b.length - a.length !== 1) return false;
+  for (let i = 0; i < b.length; i++) if (EXTRA_KANA.has(b[i]) && b.slice(0, i) + b.slice(i + 1) === a) return true;
+  return false;
+};
+const AUTO_PAIRS = (() => {
+  const seen = new Set(), U = [];
+  for (const it of ITEMS) {
+    if (it.kind !== 'w') continue;
+    const r = readOf(it);
+    if (r.length < 2 || seen.has(r)) continue;   // 같은 단어가 여러 과에 있으면 한 번만
+    seen.add(r);
+    U.push({ it, r, d: nodak(r), sm: bigKana(r), lk: lookKey(r), m: normKo(it.ko[0] || '') });
+  }
+  const out = [];
+  for (let i = 0; i < U.length; i++) for (let j = i + 1; j < U.length; j++) {
+    const A = U[i], B = U[j];
+    const why = A.d === B.d ? 'daku' : A.sm === B.sm ? 'small' : oneExtra(A.r, B.r) ? 'extra' : A.lk === B.lk ? 'look' : A.m && A.m === B.m ? 'mean' : null;
+    if (why) out.push({ a: A.it.id, b: B.it.id, why });
+  }
+  return out;
+})();
+const pairKey = (a, b) => [a, b].sort().join('|');
+function allPairs() {
+  const mine = Object.entries(DB.pairs).map(([k, n]) => { const [a, b] = k.split('|'); return { a, b, why: 'mine', n }; })
+    .filter(p => BY_ID[p.a] && BY_ID[p.b]).sort((x, y) => y.n - x.n);
+  const have = new Set(mine.map(p => pairKey(p.a, p.b)));
+  return [...mine, ...AUTO_PAIRS.filter(p => !have.has(pairKey(p.a, p.b)))];
+}
+// 두 단어를 각각 3번 연속 맞히면 그 짝은 다 외운 걸로 봐요
+const pairDone = p => [p.a, p.b].every(id => (DB.stats[id]?.streak || 0) >= 3);
+const activePairs = () => allPairs().filter(p => !pairDone(p) && (inScope(BY_ID[p.a]) || inScope(BY_ID[p.b])));
+// 같은 단어가 여러 과에 있으면(はは: 1과·4과) 자동 짝은 읽는 법이 같은 단어 모두에 붙여요
+const sameWord = (x, y) => x === y || (BY_ID[x]?.kind === 'w' && BY_ID[y]?.kind === 'w' && readOf(BY_ID[x]) === readOf(BY_ID[y]));
+const partnersOf = id => {
+  const seen = new Set(), out = [];
+  for (const p of allPairs()) {
+    const o = sameWord(p.a, id) && !(p.why === 'mine' && p.a !== id) ? p.b : sameWord(p.b, id) && !(p.why === 'mine' && p.b !== id) ? p.a : null;
+    if (!o || seen.has(readOf(BY_ID[o]))) continue;
+    seen.add(readOf(BY_ID[o])); out.push({ o: BY_ID[o], why: p.why });
+  }
+  return out;
+};
+function partnerHTML(it) {
+  const ps = partnersOf(it.id).slice(0, 2);
+  if (!ps.length) return '';
+  return `<div class="pair">헷갈리기 쉬운 짝 · ${ps.map(p => `<b class="jp">${esc(p.o.ja)}</b> ${esc(p.o.ko[0] || '')} <small>(${PAIR_WHY[p.why]})</small>`).join(' · ')}</div>`;
+}
+function notePair(it, text, toJa) {
+  if (it.kind !== 'w' || !text) return;
+  const t = toJa ? normJa(romaToKana(text)) : normKo(text);
+  if (!t) return;
+  const other = ITEMS.find(o => o.kind === 'w' && o.id !== it.id && (toJa
+    ? [o.ja, o.kana].filter(Boolean).some(x => normJa(x) === t)
+    : o.ko.flatMap(k => [k, ...String(k).split(/[\/,·]/)]).some(k => normKo(k) === t)));
+  if (!other) return;
+  const k = pairKey(it.id, other.id);
+  DB.pairs[k] = (DB.pairs[k] || 0) + 1;
+  save();
+}
+
 /* ---------- 화면: 탭 ---------- */
 let tab = 'home';
 document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
@@ -753,6 +835,9 @@ function renderHome() {
   $('#nLines').textContent = `${l.length}문장 · 외움 ${l.filter(i => isKnown(i.id)).length}`;
   $('#nWeak').textContent = `${weak.length}개`;
   $('#nStar').textContent = `${star.length}개`;
+  const conf = activePairs();
+  $('#nConf').textContent = `${conf.length}쌍`;
+  document.querySelector('[data-mode="confuse"]').disabled = !conf.length;
   document.querySelector('[data-mode="weak"]').disabled = !weak.length;
   document.querySelector('[data-mode="star"]').disabled = !star.length;
 
@@ -805,6 +890,16 @@ let weakView = 'weak';
 $('#weakSeg').querySelectorAll('button').forEach(b => b.onclick = () => { weakView = b.dataset.v; renderWeak(); });
 function renderWeak() {
   segShow($('#weakSeg'), weakView);
+  if (weakView === 'pairs') {
+    const ps = allPairs().filter(p => !pairDone(p)), done = allPairs().length - ps.length;
+    if (!ps.length) { $('#weakBody').innerHTML = '<p class="empty">헷갈리는 짝이 없어요. 다 외웠어요!</p>'; return; }
+    const one = it => `<div><div class="ja jp">${esc(it.ja)}</div><div class="ko">${esc(it.ko[0] || '')}</div></div>`;
+    $('#weakBody').innerHTML = `<button class="go" id="weakGo" style="margin-bottom:16px">헷갈리는 것 외우기</button>
+      <p class="hint" style="margin-bottom:12px">짝 ${ps.length}쌍${done ? ` · 다 외운 짝 ${done}쌍` : ''} · 두 단어를 각각 3번 연속 맞히면 빠져요.</p><div class="list">` +
+      ps.map(p => `<div class="item pairrow">${one(BY_ID[p.a])}<span class="vs">↔</span>${one(BY_ID[p.b])}<div class="cnt">${PAIR_WHY[p.why]}${p.n ? `<br><b>${p.n}번</b>` : ''}</div></div>`).join('') + '</div>';
+    $('#weakGo').onclick = () => start('confuse');
+    return;
+  }
   let list = ITEMS.filter(i => weakView === 'weak' ? isWeak(i.id) : weakView === 'star' ? isStar(i.id) : (DB.stats[i.id]?.bad || 0) > 0);
   list.sort((a, b) => (DB.stats[b.id]?.bad || 0) - (DB.stats[a.id]?.bad || 0));
   if (!list.length) { $('#weakBody').innerHTML = `<p class="empty">${weakView === 'star' ? '별표한 게 없어요. 공부할 때 카드의 ☆를 누르면 여기 모여요.' : '아직 없어요. 잘하고 있어요!'}</p>`; return; }
@@ -882,7 +977,7 @@ $('#importFile').onchange = async e => {
   try {
     const j = JSON.parse(await f.text());
     if (!j || typeof j.stats !== 'object') throw 0;
-    DB.stats = j.stats; Object.assign(S, j.settings || {}); save(); applyLook(S); render();
+    DB.stats = j.stats; DB.pairs = j.pairs || DB.pairs; Object.assign(S, j.settings || {}); save(); applyLook(S); render();
     alert('불러왔어요.');
   } catch { alert('백업 파일이 아니에요.'); }
 };
@@ -890,11 +985,22 @@ let resetArm = 0;
 $('#resetBtn').onclick = () => {
   const b = $('#resetBtn');
   if (Date.now() - resetArm > 3000) { resetArm = Date.now(); b.classList.add('arm'); b.textContent = '한 번 더 누르면 지워져요'; setTimeout(() => { b.classList.remove('arm'); b.textContent = '공부 기록 모두 지우기'; }, 3000); return; }
-  DB.stats = {}; save(); resetArm = 0; b.classList.remove('arm'); b.textContent = '지웠어요'; render();
+  DB.stats = {}; DB.pairs = {}; save(); resetArm = 0; b.classList.remove('arm'); b.textContent = '지웠어요'; render();
 };
 
 /* ---------- 공부 ---------- */
 function start(mode) {
+  if (mode === 'confuse') {
+    // 내가 헷갈린 짝 먼저, 그다음 자동 짝(섞어서). 짝 두 단어를 바로 이어서 내요
+    const ps = activePairs(), mine = ps.filter(p => p.why === 'mine'), auto = shuffle(ps.filter(p => p.why !== 'mine'));
+    const q = [], had = new Set(), n = +S.size;
+    for (const p of [...mine, ...auto]) {
+      for (const id of [p.a, p.b]) if (!had.has(id)) { had.add(id); q.push(BY_ID[id]); }
+      if (n && q.length >= n) break;
+    }
+    if (q.length) runSession(q);
+    return;
+  }
   let pool;
   if (mode === 'words') pool = ITEMS.filter(i => i.kind === 'w' && inScope(i) && kindOk(i));
   else if (mode === 'lines') pool = ITEMS.filter(i => i.kind === 'd' && inScope(i));
@@ -994,7 +1100,7 @@ function showCard(it) {
     <div class="cardwrap">
       <div class="zone up" id="zUp"><b>몰라요</b></div>
       <div class="card${isWeak(it.id) ? ' weak' : ''}" id="card">${cardTop(it)}${f.q}
-        <div class="a" id="cAns" hidden>${f.a}</div>
+        <div class="a" id="cAns" hidden>${f.a}${partnerHTML(it)}</div>
         <div class="tap" id="cTap">눌러서 정답 보기</div>
       </div>
       <div class="zone down" id="zDown"><b>알아요</b></div>
@@ -1081,7 +1187,8 @@ function showInput(it) {
           <div class="main${toJa ? ' jp' : ''}${long}">${esc(main)}</div>
           ${reading ? `<div class="reading jp">${esc(reading)}</div>` : ''}
           ${toJa ? `<div class="pron">${pr ? `<span>발음 <b>${esc(pr.ko)}</b> · ${esc(pr.ro)}</span>` : ''}<button class="say" id="rSay" aria-label="발음 듣기">🔊</button></div>` : ''}
-          ${heard != null ? `<span class="heard">${pen ? '인식한 글자' : '쓴 답'}: ${esc(heard || '(없음)')}</span>` : ''}</div>
+          ${heard != null ? `<span class="heard">${pen ? '인식한 글자' : '쓴 답'}: ${esc(heard || '(없음)')}</span>` : ''}
+          ${partnerHTML(it)}</div>
         <div class="two">${maybe || !final ? `<button class="go line" id="rFix">${maybe ? '맞았어요' : '사실 맞았어요'}</button>` : '<span></span>'}<button class="go" id="rNext">${maybe ? '틀렸어요' : '다음'}</button></div></div>`;
       const fin = () => answer(it, final);
       if ($('#rSay')) $('#rSay').onclick = () => speak(it.ja);
@@ -1098,7 +1205,12 @@ function showInput(it) {
     const inp = $('#tIn');
     inp.focus();
     inp.oninput = () => { $('#tPrev').textContent = toJa && /[a-z]/i.test(inp.value) ? '→ ' + romaToKana(inp.value) : ''; };
-    $('#tOk').onclick = () => { const v = inp.value.trim(); if (!v) return; judge(check(it, v), toJa ? romaToKana(v) : v); };
+    $('#tOk').onclick = () => {
+      const v = inp.value.trim(); if (!v) return;
+      const ok = check(it, v);
+      if (!ok) notePair(it, v, toJa);
+      judge(ok, toJa ? romaToKana(v) : v);
+    };
     $('#tIdk').onclick = () => judge(false, null);
     keyHandler = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); $('#tOk').click(); } };
     return;
@@ -1211,6 +1323,7 @@ function showInput(it) {
       const order = [...cells.keys()].sort((a, b) => a - b);
       const cands = await Promise.all(order.map(i => recognize(cells.get(i), box, box, toJa ? 'ja' : 'ko')));
       const g = gradePen(cands, targets, toJa, it.kind === 'k');
+      if (g.dist !== 0) notePair(it, g.heard, toJa);
       if (g.dist === 0) judge(true, g.heard);
       else if (g.near) judge(false, g.heard, true, '거의 맞았어요');
       else judge(false, g.heard);
