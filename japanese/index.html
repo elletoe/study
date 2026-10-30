@@ -42,12 +42,37 @@ const LOOK = {
     serif:    { name: '명조',     kr: 'Noto Serif KR',    jp: 'Zen Old Mincho',     q: 'family=Noto+Serif+KR:wght@400;600;700&family=Zen+Old+Mincho:wght@400;600;700' }
   }
 };
+/* 사용자가 고른 색(#hex)으로 바탕·포인트 색 한 벌을 만들어요 */
+const hexRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const rgbHex = c => '#' + c.map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('');
+const mixHex = (a, b, t) => { const x = hexRgb(a), y = hexRgb(b); return rgbHex(x.map((v, i) => v + (y[i] - v) * t)); };
+const lumHex = h => { const [r, g, b] = hexRgb(h).map(v => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }); return .2126 * r + .7152 * g + .0722 * b; };
+function makeBg(h) {
+  return {
+    l: [h, mixHex(h, '#ffffff', .72), mixHex(h, '#000000', .06), mixHex(h, '#000000', .14), mixHex(h, '#000000', .86), mixHex(h, '#000000', .5)],
+    d: [mixHex(h, '#000000', .86), mixHex(h, '#000000', .79), mixHex(h, '#000000', .73), mixHex(h, '#000000', .63), mixHex(h, '#ffffff', .88), mixHex(h, '#ffffff', .55)]
+  };
+}
+function makeAccent(h) {
+  const d = mixHex(h, '#ffffff', .35);
+  return { c: [h, lumHex(h) > .45 ? '#1b1b1b' : '#ffffff', d, lumHex(d) > .4 ? '#151515' : '#ffffff'] };
+}
+const bgOf = k => String(k || '').startsWith('c:') ? makeBg(k.slice(2)) : LOOK.bg[k] || LOOK.bg.paper;
+const accentOf = k => String(k || '').startsWith('c:') ? makeAccent(k.slice(2)) : LOOK.accent[k] || LOOK.accent.indigo;
+/* 배경 사진: 따로 저장해 두고, 있으면 data-photo 표시 → 카드·버튼이 유리 모양이 돼요 */
+function applyPhoto() {
+  let url = null;
+  try { url = localStorage.getItem('jp-bgimg'); } catch {}
+  const r = document.documentElement;
+  if (url) { r.dataset.photo = '1'; r.style.setProperty('--photo', `url("${url}")`); }
+  else { delete r.dataset.photo; r.style.removeProperty('--photo'); }
+}
 function applyLook(s) {
   const r = document.documentElement.style, theme = s.theme || 'auto';
   const dark = theme === 'dark' || (theme === 'auto' && matchMedia('(prefers-color-scheme:dark)').matches);
-  const p = (LOOK.bg[s.bg] || LOOK.bg.paper)[dark ? 'd' : 'l'];
+  const p = bgOf(s.bg)[dark ? 'd' : 'l'];
   ['--bg', '--surface', '--soft', '--line', '--ink', '--sub'].forEach((k, i) => r.setProperty(k, p[i]));
-  const a = (LOOK.accent[s.accent] || LOOK.accent.indigo).c;
+  const a = accentOf(s.accent).c;
   r.setProperty('--accent', dark ? a[2] : a[0]); r.setProperty('--on-accent', dark ? a[3] : a[1]);
   const st = dark
     ? { good: '#8fbc95', 'good-bg': '#1f2b22', bad: '#e0948b', 'bad-bg': '#36211f', warn: '#d9b46e', star: '#e2b75c', shadow: '0 1px 2px rgba(0,0,0,.4), 0 6px 20px rgba(0,0,0,.25)' }
@@ -63,6 +88,7 @@ function applyLook(s) {
   const meta = document.getElementById('themeColor'); if (meta) meta.content = p[0];
 }
 try { applyLook(JSON.parse(localStorage.getItem('jp-v1') || '{}').settings || {}); } catch { applyLook({}); }
+applyPhoto();
 </script>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -90,7 +116,7 @@ body{padding:env(safe-area-inset-top,0px) max(20px,env(safe-area-inset-right,0px
 [hidden]{display:none!important}
 button,input,select{font:inherit;color:inherit}
 button{cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background-color .15s,color .15s,opacity .15s,transform .1s}
-button:active:not(:disabled){transform:scale(.98)}
+button:active:not(:disabled){transform:scale(.98);filter:brightness(.9)}
 button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .jp{font-family:var(--jp)}
 .wrap{max-width:1040px;margin:0 auto;padding-block:28px 64px;display:flex;flex-direction:column;gap:28px}
@@ -185,6 +211,7 @@ header h1 small{display:block;font-size:14px;font-weight:500;color:var(--sub);le
 .sw{display:flex;flex-direction:column;align-items:center;gap:6px;border:none;background:none;padding:0;font-size:12px;font-weight:600;color:var(--sub)}
 .sw i{display:block;width:40px;height:40px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
 .sw[aria-pressed="true"]{color:var(--ink)}
+.sw.add i{display:flex;align-items:center;justify-content:center;background:var(--soft);color:var(--sub);font-style:normal;font-size:20px;box-shadow:inset 0 0 0 1.5px var(--line)}
 .sw[aria-pressed="true"] i{box-shadow:inset 0 0 0 1px rgba(0,0,0,.12),0 0 0 3px var(--surface),0 0 0 5px var(--accent)}
 .fonts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .fonts button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface);text-align:left}
@@ -344,9 +371,57 @@ header h1 small{display:block;font-size:14px;font-weight:500;color:var(--sub);le
 [data-shape="apple"] .ans input{box-shadow:none;border:none}
 [data-shape="apple"] .res{border-radius:14px}
 [data-shape="apple"] .badge{border-radius:6px}
+/* ① 글씨: 본문 17 · 설명 15 · 가장 작은 글씨도 12 이상 (애플 기준 본문 17pt, 최소 11pt) */
+[data-shape="apple"] .hint{font-size:15px;line-height:1.55}
+[data-shape="apple"] .row>.k{font-size:15px}
+[data-shape="apple"] .panel>h2{font-size:14px}
+[data-shape="apple"] .mode b{font-size:20px}
+[data-shape="apple"] .mode span{font-size:15px}
+[data-shape="apple"] .mode.mini b{font-size:15px}
+[data-shape="apple"] .lgrid .t b,[data-shape="apple"] .lgrid .n{font-size:15px}
+[data-shape="apple"] .lgrid .t small{font-size:14px}
+[data-shape="apple"] .item .ko,[data-shape="apple"] .dline .ko,[data-shape="apple"] .toggle{font-size:17px}
+[data-shape="apple"] .item .cnt,[data-shape="apple"] .item .kana,[data-shape="apple"] .badge,[data-shape="apple"] .swipehint,[data-shape="apple"] .card .tap{font-size:14px}
+[data-shape="apple"] .sw{font-size:13px}
+/* ② 누르는 영역은 44px 이상 */
+[data-shape="apple"] .chips button{min-height:44px;padding:0 18px;font-size:16px}
+[data-shape="apple"] .seg button{min-height:40px;font-size:15px}
+[data-shape="apple"] .tabs button{height:40px;font-size:15px}
+[data-shape="apple"] .ghost{height:44px}
+[data-shape="apple"] .sw i{width:44px;height:44px}
+/* ③ 색은 아껴서: 고른 칩은 옅은 포인트 색 + 포인트 색 글씨. 진하게 채운 색은 주 버튼(.go)에만 */
+[data-shape="apple"] .chips button[aria-pressed="true"]{background:color-mix(in srgb, var(--accent) 16%, var(--surface));color:var(--accent);font-weight:700;box-shadow:inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 45%, transparent)}
+/* ④ 눌림 반응: 옅은 버튼은 살짝 더 진하게 */
+[data-shape="apple"] .chips button:active,[data-shape="apple"] .go.line:active,[data-shape="apple"] .padbar button:active{filter:brightness(.88)}
+
+/* ───── 배경 사진 + 유리 모양 (Liquid Glass 비슷하게: 흐림 + 반투명 + 빛 테두리) ───── */
+#bgPhoto{display:none}
+:root[data-photo="1"] #bgPhoto{display:block;position:fixed;inset:0;z-index:-1;background:var(--photo) center/cover no-repeat}
+/* 사진이 밝아도 글씨가 읽히게 얇게 덮어요 (애플: 밝은 배경 위 유리에는 어둡게 깔기) */
+:root[data-photo="1"] #bgPhoto::after{content:"";position:absolute;inset:0;background:color-mix(in srgb, var(--bg) 22%, transparent)}
+:root[data-photo="1"] body,:root[data-photo="1"] .study{background:transparent}
+/* 공부 화면이 열려 있으면 뒤의 홈은 숨겨요 (사진만 보이게) */
+body.studying>.wrap{visibility:hidden}
+:root[data-photo="1"]{--glass:color-mix(in srgb, var(--surface) 58%, transparent);--glass-in:color-mix(in srgb, var(--surface) 42%, transparent);
+  --glass-edge:inset 0 0 0 1px rgba(255,255,255,.42), inset 0 1px 0 rgba(255,255,255,.55);--glass-shadow:0 8px 28px rgba(0,0,0,.14)}
+:root[data-photo="1"][style*="color-scheme: dark"]{--glass-edge:inset 0 0 0 1px rgba(255,255,255,.14), inset 0 1px 0 rgba(255,255,255,.2);--glass-shadow:0 8px 28px rgba(0,0,0,.4)}
+/* 바깥 카드·버튼: 진짜 유리(뒤를 흐리게) */
+:root[data-photo="1"] :where(.tabs,.panel,.mode,.list,.empty,.dline,.card,.pad,.ghost,.dday,.banner,.padbar button,.res,.ans input,.stage>.go.line,.say){
+  background:var(--glass);-webkit-backdrop-filter:blur(24px) saturate(1.8);backdrop-filter:blur(24px) saturate(1.8);
+  border:none;box-shadow:var(--glass-edge),var(--glass-shadow)}
+/* 유리 안쪽 칸: 흐림은 빼고 옅게만 (겹흐림은 무겁고 탁해져요) */
+:root[data-photo="1"] :is(.panel,.list,.card) :is(.seg,.chips button,.go.line,.lgrid li,.field input,.say){background:var(--glass-in);-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
+:root[data-photo="1"] .chips button[aria-pressed="true"]{background:color-mix(in srgb, var(--accent) 30%, transparent);color:var(--ink)}
+:root[data-photo="1"] .seg button[aria-pressed="true"],:root[data-photo="1"] .tabs button[aria-selected="true"]{background:color-mix(in srgb, var(--surface) 80%, transparent)}
+/* 주 버튼은 색 있는 유리 (애플: 강조할 버튼에만 색을 입혀요) */
+:root[data-photo="1"] :is(.go:not(.line),.padbar .ok){background:color-mix(in srgb, var(--accent) 82%, transparent);-webkit-backdrop-filter:blur(20px) saturate(1.8);backdrop-filter:blur(20px) saturate(1.8);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),var(--glass-shadow)}
+:root[data-photo="1"] .mode.main{background:var(--glass)}
+/* 사진 위에 바로 놓인 글씨(제목 등)는 은은한 그림자로 읽히게 */
+:root[data-photo="1"] :is(header h1,header h1 small,.sec,.page>.hint,#inArea>.hint,.swipehint,.stop span){text-shadow:0 0 14px color-mix(in srgb, var(--bg) 85%, transparent),0 0 2px color-mix(in srgb, var(--bg) 70%, transparent)}
 </style>
 </head>
 <body>
+<div id="bgPhoto" aria-hidden="true"></div>
 <div class="wrap">
   <header>
     <h1>일본어 암기<small id="bookName"></small></h1>
@@ -453,8 +528,12 @@ header h1 small{display:block;font-size:14px;font-weight:500;color:var(--sub);le
         <div class="panel">
           <h2>꾸미기</h2>
           <div class="rows">
-            <div class="row"><span class="k">바탕색</span><div class="v"><div class="swatches" id="bgSw"></div></div></div>
-            <div class="row"><span class="k">포인트 색</span><div class="v"><div class="swatches" id="accentSw"></div></div></div>
+            <div class="row"><span class="k">바탕색</span><div class="v"><div class="swatches" id="bgSw"></div><input type="color" id="bgPick" hidden></div></div>
+            <div class="row"><span class="k">포인트 색</span><div class="v"><div class="swatches" id="accentSw"></div><input type="color" id="accentPick" hidden></div></div>
+            <div class="row"><span class="k">배경 사진</span><div class="v">
+              <div class="two"><button class="go line" id="photoPick">사진 고르기</button><button class="go line" id="photoClear">사진 없애기</button></div>
+              <p class="hint">사진을 넣으면 카드와 버튼이 반투명 유리 모양이 돼요.</p>
+              <input type="file" id="photoFile" accept="image/*" hidden></div></div>
             <div class="row"><span class="k">글씨체</span><div class="v"><div class="fonts" id="fontOpts"></div></div></div>
             <div class="row"><span class="k">모양</span><div class="v">
               <div class="seg" id="shapeSeg">
@@ -1025,8 +1104,13 @@ function renderSet() {
   $('#showKana').checked = S.showKana;
   segShow($('#themeSeg'), S.theme); segShow($('#shapeSeg'), S.shape || 'apple');
   const dark = document.documentElement.style.colorScheme === 'dark';
-  $('#bgSw').innerHTML = Object.entries(LOOK.bg).map(([k, v]) => `<button class="sw" data-k="${k}" aria-pressed="${(S.bg || 'paper') === k}"><i style="background:${v[dark ? 'd' : 'l'][0]}"></i>${v.name}</button>`).join('');
-  $('#accentSw').innerHTML = Object.entries(LOOK.accent).map(([k, v]) => `<button class="sw" data-k="${k}" aria-pressed="${(S.accent || 'indigo') === k}"><i style="background:${v.c[dark ? 2 : 0]}"></i>${v.name}</button>`).join('');
+  // 기본 색 + 내가 추가한 색(c:#hex) + 추가 버튼. 내가 추가한 색은 고른 상태에서 한 번 더 누르면 지울 수 있어요
+  const swBtn = (key, cur, color, name, mine) => `<button class="sw${mine ? ' mine' : ''}" data-k="${key}" aria-pressed="${cur === key}"><i style="background:${color}"></i>${name}</button>`;
+  const addBtn = id => `<button class="sw add" data-add="${id}"><i>＋</i>추가</button>`;
+  $('#bgSw').innerHTML = Object.entries(LOOK.bg).map(([k, v]) => swBtn(k, S.bg || 'paper', v[dark ? 'd' : 'l'][0], v.name)).join('') +
+    (S.customBgs || []).map(h => swBtn('c:' + h, S.bg, bgOf('c:' + h)[dark ? 'd' : 'l'][0], '내 색', true)).join('') + addBtn('bgPick');
+  $('#accentSw').innerHTML = Object.entries(LOOK.accent).map(([k, v]) => swBtn(k, S.accent || 'indigo', v.c[dark ? 2 : 0], v.name)).join('') +
+    (S.customAccents || []).map(h => swBtn('c:' + h, S.accent, accentOf('c:' + h).c[dark ? 2 : 0], '내 색', true)).join('') + addBtn('accentPick');
   $('#fontOpts').innerHTML = Object.entries(LOOK.font).map(([k, v]) => `<button data-k="${k}" aria-pressed="${(S.font || 'gothic') === k}"><b>${v.name}</b><span style="font-family:'${v.jp}','${v.kr}'">あいう 가나다</span></button>`).join('');
   // 미리 보기용으로 네 가지 글씨체를 다 불러 둬요 (설정 화면에서만)
   if (!document.getElementById('fontPreview')) {
@@ -1034,10 +1118,42 @@ function renderSet() {
     l.href = 'https://fonts.googleapis.com/css2?' + Object.values(LOOK.font).map(f => f.q).filter(Boolean).join('&') + '&text=' + encodeURIComponent('あいう 가나다') + '&display=swap';
     document.head.appendChild(l);
   }
-  const pick = (sel, key) => $(sel).querySelectorAll('button').forEach(b => b.onclick = () => { S[key] = b.dataset.k; save(); applyLook(S); renderSet(); });
-  pick('#bgSw', 'bg'); pick('#accentSw', 'accent'); pick('#fontOpts', 'font');
+  const pick = (sel, key, list, def) => $(sel).querySelectorAll('button').forEach(b => b.onclick = () => {
+    if (b.dataset.add) return $('#' + b.dataset.add).click();
+    const k = b.dataset.k;
+    if (list && b.classList.contains('mine') && S[key] === k) {   // 고른 내 색을 또 누르면 지우기
+      if (!confirm('이 색을 지울까요?')) return;
+      S[list] = (S[list] || []).filter(h => 'c:' + h !== k); S[key] = def;
+    } else S[key] = k;
+    save(); applyLook(S); renderSet();
+  });
+  pick('#bgSw', 'bg', 'customBgs', 'paper'); pick('#accentSw', 'accent', 'customAccents', 'indigo'); pick('#fontOpts', 'font');
   $('#bookInfo').textContent = !LESSONS.length ? '아직 불러온 교과서가 없어요.' : `${DATA.book || ''} · ${LESSONS.length}과 · 단어 ${ITEMS.filter(i => i.kind === 'w').length}개 · 다이얼로그 ${ITEMS.filter(i => i.kind === 'd').length}문장`;
 }
+// 색 추가
+const addColor = (inputSel, list, key) => $(inputSel).onchange = e => {
+  const h = e.target.value.toLowerCase();
+  S[list] = [...new Set([...(S[list] || []), h])].slice(-8);
+  S[key] = 'c:' + h; save(); applyLook(S); renderSet();
+};
+addColor('#bgPick', 'customBgs', 'bg'); addColor('#accentPick', 'customAccents', 'accent');
+// 배경 사진: 긴 쪽 1800px로 줄여서 JPEG로 저장 (아이패드 저장 공간 한도 안에 들게)
+$('#photoPick').onclick = () => $('#photoFile').click();
+$('#photoFile').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  try {
+    const img = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = URL.createObjectURL(f); });
+    const k = Math.min(1, 1800 / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    let url = c.toDataURL('image/jpeg', .82);
+    if (url.length > 2.5e6) url = c.toDataURL('image/jpeg', .6);
+    localStorage.setItem('jp-bgimg', url);
+    applyPhoto();
+  } catch { alert('사진을 넣지 못했어요. 다른 사진으로 해 보세요.'); }
+};
+$('#photoClear').onclick = () => { try { localStorage.removeItem('jp-bgimg'); } catch {} applyPhoto(); };
 $('#examDate').onchange = e => { S.examDate = e.target.value; save(); render(); };
 $('#autoSpeak').onchange = e => { S.autoSpeak = e.target.checked; save(); };
 $('#showKana').onchange = e => { S.showKana = e.target.checked; save(); };
@@ -1144,14 +1260,14 @@ function start(mode) {
 let SES = null;
 function runSession(items) {
   SES = { queue: items.slice(), total: items.length, done: 0, know: 0, miss: new Set() };
-  $('#study').hidden = false;
+  $('#study').hidden = false; document.body.classList.add('studying');
   document.body.style.overflow = 'hidden';
   next();
 }
 function endSession() {
   SES = null;
   speechSynthesis?.cancel?.();
-  $('#study').hidden = true;
+  $('#study').hidden = true; document.body.classList.remove('studying');
   document.body.style.overflow = '';
   render();
 }
