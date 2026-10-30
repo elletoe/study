@@ -185,6 +185,13 @@ header h1 small{display:block;font-size:14px;font-weight:500;color:var(--sub);le
 .lgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0;padding:0;list-style:none}
 .lgrid li{display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:14px;background:var(--bg)}
 .lgrid .t{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.dbar{display:grid;grid-template-columns:auto 1fr 3.2em;align-items:center;gap:8px;font-size:13px;color:var(--sub);font-variant-numeric:tabular-nums}
+.dbar>span:last-child{text-align:right}
+.dbar:not(.cur) .bar i{opacity:.45}
+.dbar.cur{color:var(--ink);font-weight:600}
+.mode span.dc{display:inline;margin:0;font-size:inherit;color:inherit;opacity:1}
+.mode span.dc.cur{font-weight:700}
+:root[data-shape="apple"] .mode span.dc.cur{color:var(--ink)}
 .lgrid .t b{font-size:14px;font-weight:700;white-space:nowrap}
 .lgrid .t small{font-size:13px;color:var(--sub);font-variant-numeric:tabular-nums}
 .lgrid .n{font-size:14px;color:var(--sub);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -775,19 +782,29 @@ const save = () => { try { localStorage.setItem(KEY, JSON.stringify(DB)); } catc
 const st = id => DB.stats[id] || (DB.stats[id] = { ok: 0, bad: 0, streak: 0, lastBad: false, star: false });
 
 /* 약한 것: 3번 연속 맞히기 전까지, 바로 전에 틀렸거나 · 몰라요 2번 이상이거나 · 정답률 60% 미만 */
-function isWeak(id) {
-  const s = DB.stats[id];
+const weakOf = s => {
   if (!s || s.streak >= 3) return false;
   const n = s.ok + s.bad;
   return s.lastBad || s.bad >= 2 || (n > 0 && s.ok / n < 0.6);
-}
+};
+const isWeak = id => weakOf(DB.stats[id]);
 const isStar = id => !!DB.stats[id]?.star;
-const isKnown = id => { const s = DB.stats[id]; return !!s && s.ok > 0 && !isWeak(id); };
+/* 외움은 방향마다 따로 세요: s.dir.jk(일→한) · s.dir.kj(한→일). 약한 것·별표는 방향과 상관없이 하나예요 */
+const DIRS = [['jk', '일→한'], ['kj', '한→일']];
+const isKnownIn = (id, d) => { const s = DB.stats[id]?.dir?.[d]; return !!s && s.ok > 0 && !weakOf(s); };
+const knownIn = (its, d) => its.filter(i => isKnownIn(i.id, d)).length;
+// 방향을 나누기 전 기록은 그때 설정된 방향으로 옮겨요 (백업을 불러올 때도)
+function splitOldStats() {
+  for (const s of Object.values(DB.stats)) if (!s.dir && s.ok + s.bad) s.dir = { [S.dir]: { ok: s.ok, bad: s.bad, streak: s.streak, lastBad: s.lastBad } };
+}
+splitOldStats();
 
 function record(id, ok) {
-  const s = st(id);
-  if (ok) { s.ok++; s.streak++; s.lastBad = false; }
-  else { s.bad++; s.streak = 0; s.lastBad = true; }
+  const s = st(id), d = ((s.dir ||= {})[S.dir] ||= { ok: 0, bad: 0, streak: 0, lastBad: false });
+  for (const x of [s, d]) {
+    if (ok) { x.ok++; x.streak++; x.lastBad = false; }
+    else { x.bad++; x.streak = 0; x.lastBad = true; }
+  }
   s.last = Date.now();
   save();
 }
@@ -1051,6 +1068,8 @@ const METHOD_HINT = {
   pen: '애플펜슬로 칸에 한 글자씩 일본어를 쓰면 AI가 읽어서 채점해요. 인터넷이 필요해요. 글씨가 잘 안 써지면 아이패드 설정 → Apple Pencil → 손글씨 입력(Scribble)을 꺼 주세요.',
   type: '키보드로 쳐요. 일본어는 로마자로 쳐도 돼요 (taberu → たべる).'
 };
+// "685개 / 일→한 12 · 한→일 3" — 지금 고른 방향은 진하게
+const countHTML = (its, unit) => `${its.length}${unit}<br>외움 ` + DIRS.map(([d, name]) => `<span class="dc${d === S.dir ? ' cur' : ''}">${name} ${knownIn(its, d)}</span>`).join(' · ');
 function renderHome() {
   $('#noData').hidden = LESSONS.length > 0;
   document.querySelectorAll('.mode:not(.kana)').forEach(b => b.disabled = !LESSONS.length);
@@ -1063,7 +1082,7 @@ function renderHome() {
   });
   for (const [sc, el] of [['h', '#nHira'], ['k', '#nKata']]) {
     const its = ITEMS.filter(i => i.kind === 'k' && i.script === sc && S.kanaSets.includes(i.set));
-    $(el).textContent = `${its.length}자 · 외움 ${its.filter(i => isKnown(i.id)).length}`;
+    $(el).innerHTML = countHTML(its, '자');
     $(el).closest('button').disabled = !its.length;
   }
   segShow($('#wordKindSeg'), S.wordKind);
@@ -1083,8 +1102,8 @@ function renderHome() {
   const scope = ITEMS.filter(inScope);
   const w = scope.filter(i => i.kind === 'w' && kindOk(i)), l = scope.filter(i => i.kind === 'd');
   const weak = scope.filter(i => isWeak(i.id)), star = scope.filter(i => isStar(i.id));
-  $('#nWords').textContent = `${w.length}개 · 외움 ${w.filter(i => isKnown(i.id)).length}`;
-  $('#nLines').textContent = `${l.length}문장 · 외움 ${l.filter(i => isKnown(i.id)).length}`;
+  $('#nWords').innerHTML = countHTML(w, '개');
+  $('#nLines').innerHTML = countHTML(l, '문장');
   $('#nWeak').textContent = `${weak.length}개`;
   $('#nStar').textContent = `${star.length}개`;
   const conf = activePairs();
@@ -1102,9 +1121,10 @@ function renderHome() {
   }
 
   $('#lessonBars').innerHTML = LESSONS.map(L => {
-    const its = ITEMS.filter(i => i.lesson === L.no), k = its.filter(i => isKnown(i.id)).length, wk = its.filter(i => isWeak(i.id)).length;
-    const pct = its.length ? Math.round(k / its.length * 100) : 0;
-    return `<li><div class="t"><b>${esc(lessonLabel(L.no))}</b><small>${wk ? `<em>약한 것 ${wk}</em> · ` : ''}${pct}%</small></div><div class="n jp">${esc(L.title || '')}</div><div class="bar"><i style="width:${pct}%"></i></div></li>`;
+    const its = ITEMS.filter(i => i.lesson === L.no), wk = its.filter(i => isWeak(i.id)).length;
+    const pct = d => its.length ? Math.round(knownIn(its, d) / its.length * 100) : 0;
+    return `<li><div class="t"><b>${esc(lessonLabel(L.no))}</b><small>${wk ? `<em>약한 것 ${wk}</em>` : ''}</small></div><div class="n jp">${esc(L.title || '')}</div>`
+      + DIRS.map(([d, name]) => `<div class="dbar${d === S.dir ? ' cur' : ''}"><span>${name}</span><div class="bar"><i style="width:${pct(d)}%"></i></div><span>${pct(d)}%</span></div>`).join('') + '</li>';
   }).join('') || '<li><span class="hint">교과서를 불러오면 과별 진도가 나와요</span></li>';
   $('#bookName').textContent = DATA.book && LESSONS.length ? DATA.book : '';
 }
@@ -1280,7 +1300,7 @@ $('#importFile').onchange = async e => {
   try {
     const j = JSON.parse(await f.text());
     if (!j || typeof j.stats !== 'object') throw 0;
-    DB.stats = j.stats; DB.pairs = j.pairs || DB.pairs; Object.assign(S, j.settings || {}); save(); applyLook(S); render();
+    DB.stats = j.stats; DB.pairs = j.pairs || DB.pairs; Object.assign(S, j.settings || {}); splitOldStats(); save(); applyLook(S); render();
     alert('불러왔어요.');
   } catch { alert('백업 파일이 아니에요.'); }
 };
