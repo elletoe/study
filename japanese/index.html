@@ -1022,6 +1022,22 @@ $('#resetBtn').onclick = () => {
 };
 
 /* ---------- 공부 ---------- */
+/* n개 고르기: 같은 단어만 계속 나오지 않게
+   약한 것은 최대 1/3 → 처음 보는 것 → 오래전에 본 것. 방금(20분 안) 본 것은 모자랄 때만 */
+function pickBatch(pool, n) {
+  const now = Date.now(), last = i => DB.stats[i.id]?.last || 0, recent = i => now - last(i) < 20 * 60 * 1000;
+  const byOld = arr => shuffle(arr.slice()).sort((a, b) => last(a) - last(b));
+  const fresh = pool.filter(i => !recent(i));
+  const weak = byOld(fresh.filter(i => isWeak(i.id)));
+  const unseen = shuffle(fresh.filter(i => !DB.stats[i.id]));
+  const seen = byOld(fresh.filter(i => DB.stats[i.id] && !isWeak(i.id)));
+  const later = byOld(pool.filter(recent));
+  const out = [], had = new Set();
+  const take = (arr, k) => { for (const i of arr) { if (out.length >= n || k <= 0) break; if (!had.has(i.id)) { had.add(i.id); out.push(i); k--; } } };
+  take(weak, Math.ceil(n / 3));
+  for (const arr of [unseen, weak, seen, later]) take(arr, n);
+  return out;
+}
 function start(mode) {
   if (mode.startsWith('group:')) {
     const g = GROUPS.find(x => x.gi === +mode.slice(6));
@@ -1049,11 +1065,8 @@ function start(mode) {
   else if (mode === 'weakAll') pool = ITEMS.filter(i => isWeak(i.id));
   else if (mode === 'hira' || mode === 'kata') pool = ITEMS.filter(i => i.kind === 'k' && i.script === (mode === 'hira' ? 'h' : 'k') && S.kanaSets.includes(i.set));
   if (!pool.length) return;
-  // 약한 것 → 처음 보는 것 → 오래전에 본 것 순서로 골라요
-  const rank = i => isWeak(i.id) ? 0 : !DB.stats[i.id] ? 1 : 2;
-  pool = shuffle(pool.slice()).sort((a, b) => rank(a) - rank(b) || (DB.stats[a.id]?.last || 0) - (DB.stats[b.id]?.last || 0));
   const n = +S.size;
-  if (n && ['words', 'lines', 'hira', 'kata'].includes(mode)) pool = pool.slice(0, n);
+  if (n && ['words', 'lines', 'hira', 'kata'].includes(mode)) pool = pickBatch(pool, n);
   runSession(shuffle(pool));
 }
 
