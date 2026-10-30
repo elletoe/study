@@ -245,6 +245,7 @@ header h1 small{display:block;font-size:14px;font-weight:500;color:var(--sub);le
 .card .corner.l{left:16px}.card .corner.r{right:12px}
 .badge{padding:5px 11px;border-radius:99px;background:var(--soft);font-size:13px;font-weight:600;color:var(--sub)}
 .badge.red{background:var(--bad-bg);color:var(--bad)}
+.badge.warn{background:color-mix(in srgb, var(--warn) 18%, var(--surface));color:var(--warn)}
 .zone{position:absolute;left:0;right:0;display:flex;justify-content:center;pointer-events:none;opacity:0;transition:opacity .1s}
 .zone b{padding:10px 22px;border-radius:99px;font-size:17px;font-weight:700}
 .zone.down{bottom:-6px}.zone.down b{background:var(--good);color:#fff}
@@ -373,10 +374,10 @@ header h1 small{display:block;font-size:14px;font-weight:500;color:var(--sub);le
     <div class="seg" id="weakSeg">
       <button data-v="weak">약한 것</button>
       <button data-v="star">★ 별표</button>
-      <button data-v="pairs">헷갈리는 짝</button>
+      <button data-v="pairs">헷갈리는 것</button>
       <button data-v="all">많이 틀린 순</button>
     </div>
-    <p class="hint">몰라요가 2번 이상이거나, 정답률이 60%보다 낮거나, 바로 전에 틀린 것이 약한 것이 돼요. 3번 연속 맞히면 빠져요.</p>
+    <p class="hint" id="weakHint">몰라요가 2번 이상이거나, 정답률이 60%보다 낮거나, 바로 전에 틀린 것이 약한 것이 돼요. 3번 연속 맞히면 빠져요.</p>
     <div id="weakBody"></div>
   </section>
 
@@ -730,6 +731,22 @@ const partnersOf = id => {
   }
   return out;
 };
+/* 류별 묶음 (교과서 파일의 groups): 같은 종류 단어끼리. hard는 특히 헷갈리는 것 */
+const GROUPS = (DATA.groups || []).map((g, gi) => {
+  const ids = [];
+  for (const ja of g.members) { const it = ITEMS.find(i => i.kind === 'w' && i.ja === ja); if (it && !ids.includes(it.id)) ids.push(it.id); }
+  return { ...g, gi, ids, hardSet: new Set(g.hard || []) };
+}).filter(g => g.ids.length >= 2);
+const groupsOf = it => it.kind === 'w' ? GROUPS.filter(g => g.members.includes(it.ja)) : [];
+const isHard = it => groupsOf(it).some(g => g.hardSet.has(it.ja));
+function groupHTML(it) {
+  return groupsOf(it).slice(0, 2).map(g => {
+    // 같은 묶음에서 특히 헷갈리는 것 먼저, 최대 4개
+    const others = g.ids.map(id => BY_ID[id]).filter(o => o.ja !== it.ja)
+      .sort((a, b) => g.hardSet.has(b.ja) - g.hardSet.has(a.ja)).slice(0, 4);
+    return others.length ? `<div class="pair">같은 류 · ${esc(g.name)} — ${others.map(o => `<b class="jp">${esc(o.ja)}</b> ${esc(o.ko[0] || '')}`).join(' · ')}</div>` : '';
+  }).join('');
+}
 function partnerHTML(it) {
   const ps = partnersOf(it.id).slice(0, 2);
   if (!ps.length) return '';
@@ -750,12 +767,14 @@ function notePair(it, text, toJa) {
 
 /* ---------- 화면: 탭 ---------- */
 let tab = 'home';
-document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
-  tab = b.dataset.tab;
-  document.querySelectorAll('.tabs button').forEach(x => x.setAttribute('aria-selected', x === b));
+function goTab(name) {
+  tab = name;
+  document.querySelectorAll('.tabs button').forEach(x => x.setAttribute('aria-selected', x.dataset.tab === tab));
   document.querySelectorAll('.page').forEach(p => p.hidden = p.id !== 'p-' + tab);
   render();
-});
+  scrollTo(0, 0);
+}
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => goTab(b.dataset.tab));
 
 function segBind(el, key, after) {
   el.querySelectorAll('button').forEach(b => b.onclick = () => { S[key] = b.dataset.v; save(); after && after(); render(); });
@@ -836,8 +855,8 @@ function renderHome() {
   $('#nWeak').textContent = `${weak.length}개`;
   $('#nStar').textContent = `${star.length}개`;
   const conf = activePairs();
-  $('#nConf').textContent = `${conf.length}쌍`;
-  document.querySelector('[data-mode="confuse"]').disabled = !conf.length;
+  $('#nConf').textContent = `${conf.length}쌍 · 묶음 ${GROUPS.length}`;
+  document.querySelector('[data-mode="confuse"]').disabled = !conf.length && !GROUPS.length;
   document.querySelector('[data-mode="weak"]').disabled = !weak.length;
   document.querySelector('[data-mode="star"]').disabled = !star.length;
 
@@ -856,7 +875,10 @@ function renderHome() {
   }).join('') || '<li><span class="hint">교과서를 불러오면 과별 진도가 나와요</span></li>';
   $('#bookName').textContent = DATA.book && LESSONS.length ? DATA.book : '';
 }
-document.querySelectorAll('.mode').forEach(b => b.onclick = () => start(b.dataset.mode));
+document.querySelectorAll('.mode').forEach(b => b.onclick = () => {
+  if (b.dataset.mode === 'confuse') { weakView = 'pairs'; return goTab('weak'); }   // 묶음을 고를 수 있게 목록으로
+  start(b.dataset.mode);
+});
 
 /* ---------- 다이얼로그 열람 ---------- */
 let readLesson = null, readKo = true, readKana = false;
@@ -890,14 +912,25 @@ let weakView = 'weak';
 $('#weakSeg').querySelectorAll('button').forEach(b => b.onclick = () => { weakView = b.dataset.v; renderWeak(); });
 function renderWeak() {
   segShow($('#weakSeg'), weakView);
+  $('#weakHint').hidden = weakView === 'pairs';
   if (weakView === 'pairs') {
     const ps = allPairs().filter(p => !pairDone(p)), done = allPairs().length - ps.length;
-    if (!ps.length) { $('#weakBody').innerHTML = '<p class="empty">헷갈리는 짝이 없어요. 다 외웠어요!</p>'; return; }
     const one = it => `<div><div class="ja jp">${esc(it.ja)}</div><div class="ko">${esc(it.ko[0] || '')}</div></div>`;
-    $('#weakBody').innerHTML = `<button class="go" id="weakGo" style="margin-bottom:16px">헷갈리는 것 외우기</button>
-      <p class="hint" style="margin-bottom:12px">짝 ${ps.length}쌍${done ? ` · 다 외운 짝 ${done}쌍` : ''} · 두 단어를 각각 3번 연속 맞히면 빠져요.</p><div class="list">` +
-      ps.map(p => `<div class="item pairrow">${one(BY_ID[p.a])}<span class="vs">↔</span>${one(BY_ID[p.b])}<div class="cnt">${PAIR_WHY[p.why]}${p.n ? `<br><b>${p.n}번</b>` : ''}</div></div>`).join('') + '</div>';
-    $('#weakGo').onclick = () => start('confuse');
+    // 류별 묶음: 계열별로 칩. 다 외운 정도(3번 연속 맞힌 단어 비율)도 보여 줘요
+    const cats = [...new Set(GROUPS.map(g => g.cat))];
+    const groupsHTML = GROUPS.length ? `<div class="panel" style="margin-bottom:20px"><h2>류별 묶음 <small>골라서 그 묶음만 이어서 외워요</small></h2>` +
+      cats.map(c => `<div class="row"><span class="k">${esc(c)}</span><div class="v"><div class="chips">` +
+        GROUPS.filter(g => g.cat === c).map(g => {
+          const k = g.ids.filter(id => (DB.stats[id]?.streak || 0) >= 3).length;
+          return `<button data-g="${g.gi}">${esc(g.name)} <small style="opacity:.6">${k}/${g.ids.length}</small></button>`;
+        }).join('') + '</div></div></div>').join('') + '</div>' : '';
+    const pairsHTML = ps.length ? `<h2 class="sec">헷갈리는 짝 <small>짝 ${ps.length}쌍${done ? ` · 다 외운 짝 ${done}쌍` : ''}</small></h2>
+      <button class="go" id="weakGo" style="margin-bottom:12px">짝 이어서 외우기</button>
+      <p class="hint" style="margin-bottom:12px">두 단어를 각각 3번 연속 맞히면 빠져요.</p><div class="list">` +
+      ps.map(p => `<div class="item pairrow">${one(BY_ID[p.a])}<span class="vs">↔</span>${one(BY_ID[p.b])}<div class="cnt">${PAIR_WHY[p.why]}${p.n ? `<br><b>${p.n}번</b>` : ''}</div></div>`).join('') + '</div>' : '';
+    $('#weakBody').innerHTML = groupsHTML + pairsHTML || '<p class="empty">헷갈리는 것이 없어요. 다 외웠어요!</p>';
+    if ($('#weakGo')) $('#weakGo').onclick = () => start('confuse');
+    $('#weakBody').querySelectorAll('[data-g]').forEach(b => b.onclick = () => start('group:' + b.dataset.g));
     return;
   }
   let list = ITEMS.filter(i => weakView === 'weak' ? isWeak(i.id) : weakView === 'star' ? isStar(i.id) : (DB.stats[i.id]?.bad || 0) > 0);
@@ -957,7 +990,7 @@ $('#bookFile').onchange = async e => {
     const byNo = new Map(cur.lessons.map(l => [l.no, l]));
     let added = 0, updated = 0;
     for (const l of j.lessons) { byNo.has(l.no) ? updated++ : added++; byNo.set(l.no, l); }
-    const merged = { book: cur.book || j.book, lessons: [...byNo.values()].sort((a, b) => a.no - b.no) };
+    const merged = { book: cur.book || j.book, lessons: [...byNo.values()].sort((a, b) => a.no - b.no), groups: j.groups || cur.groups || [] };
     localStorage.setItem(BOOK_KEY, JSON.stringify(merged));
     alert(`불러왔어요. ${added ? `새로 ${added}개` : ''}${added && updated ? ', ' : ''}${updated ? `바뀐 것 ${updated}개` : ''}`);
     location.reload();
@@ -990,6 +1023,13 @@ $('#resetBtn').onclick = () => {
 
 /* ---------- 공부 ---------- */
 function start(mode) {
+  if (mode.startsWith('group:')) {
+    const g = GROUPS.find(x => x.gi === +mode.slice(6));
+    if (!g) return;
+    const its = g.ids.map(id => BY_ID[id]);
+    runSession([...shuffle(its.filter(i => g.hardSet.has(i.ja))), ...shuffle(its.filter(i => !g.hardSet.has(i.ja)))]);
+    return;
+  }
   if (mode === 'confuse') {
     // 내가 헷갈린 짝 먼저, 그다음 자동 짝(섞어서). 짝 두 단어를 바로 이어서 내요
     const ps = activePairs(), mine = ps.filter(p => p.why === 'mine'), auto = shuffle(ps.filter(p => p.why !== 'mine'));
@@ -1080,7 +1120,7 @@ function cardTop(it) {
   const p = it.kind === 'd' && it.prev, pk = S.dir === 'kj';
   const ctx = p ? `<div class="ctx${pk ? '' : ' jp'}">${esc(p.who ? p.who + ': ' : '')}${esc(pk ? p.ko.join(' / ') : p.ja)}</div>` : '';
   const who = it.kind === 'd' && it.who ? `<div class="who jp">${esc(it.who)}</div>` : '';
-  return `<div class="corner l"><span class="badge">${it.kind === 'k' ? (it.script === 'h' ? '히라가나' : '가타카나') + ' · ' + KANA_SETS[it.set] : esc(lessonLabel(it.lesson))}${it.kind === 'd' ? ' · ' + esc(it.dlg) : ''}</span>${isWeak(it.id) ? '<span class="badge red">약한 것</span>' : ''}</div>
+  return `<div class="corner l"><span class="badge">${it.kind === 'k' ? (it.script === 'h' ? '히라가나' : '가타카나') + ' · ' + KANA_SETS[it.set] : esc(lessonLabel(it.lesson))}${it.kind === 'd' ? ' · ' + esc(it.dlg) : ''}</span>${isWeak(it.id) ? '<span class="badge red">약한 것</span>' : ''}${isHard(it) ? '<span class="badge warn">특히 헷갈림</span>' : ''}</div>
     <div class="corner r">${S.dir === 'kj' ? '' : '<button class="say" data-act="say" aria-label="발음 듣기">🔊</button>'}<button class="star" data-act="star" aria-pressed="${isStar(it.id)}" aria-label="별표">★</button></div>
     ${ctx}${who}`;
 }
@@ -1100,7 +1140,7 @@ function showCard(it) {
     <div class="cardwrap">
       <div class="zone up" id="zUp"><b>몰라요</b></div>
       <div class="card${isWeak(it.id) ? ' weak' : ''}" id="card">${cardTop(it)}${f.q}
-        <div class="a" id="cAns" hidden>${f.a}${partnerHTML(it)}</div>
+        <div class="a" id="cAns" hidden>${f.a}${partnerHTML(it)}${groupHTML(it)}</div>
         <div class="tap" id="cTap">눌러서 정답 보기</div>
       </div>
       <div class="zone down" id="zDown"><b>알아요</b></div>
@@ -1188,7 +1228,7 @@ function showInput(it) {
           ${reading ? `<div class="reading jp">${esc(reading)}</div>` : ''}
           ${toJa ? `<div class="pron">${pr ? `<span>발음 <b>${esc(pr.ko)}</b> · ${esc(pr.ro)}</span>` : ''}<button class="say" id="rSay" aria-label="발음 듣기">🔊</button></div>` : ''}
           ${heard != null ? `<span class="heard">${pen ? '인식한 글자' : '쓴 답'}: ${esc(heard || '(없음)')}</span>` : ''}
-          ${partnerHTML(it)}</div>
+          ${partnerHTML(it)}${groupHTML(it)}</div>
         <div class="two">${maybe || !final ? `<button class="go line" id="rFix">${maybe ? '맞았어요' : '사실 맞았어요'}</button>` : '<span></span>'}<button class="go" id="rNext">${maybe ? '틀렸어요' : '다음'}</button></div></div>`;
       const fin = () => answer(it, final);
       if ($('#rSay')) $('#rSay').onclick = () => speak(it.ja);
