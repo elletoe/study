@@ -35,6 +35,7 @@ const LOOK = {
   },
   // 글씨체: 한국어 / 일본어
   font: {
+    system:   { name: '애플 기본', kr: 'Apple SD Gothic Neo', jp: 'Hiragino Sans', q: '' },
     gothic:   { name: '고딕',     kr: 'IBM Plex Sans KR', jp: 'Zen Kaku Gothic New', q: 'family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Zen+Kaku+Gothic+New:wght@400;500;700' },
     round:    { name: '둥근',     kr: 'Nanum Gothic',     jp: 'M PLUS Rounded 1c',  q: 'family=Nanum+Gothic:wght@400;700;800&family=M+PLUS+Rounded+1c:wght@400;500;700' },
     textbook: { name: '교과서체', kr: 'Gowun Batang',     jp: 'Klee One',           q: 'family=Gowun+Batang:wght@400;700&family=Klee+One:wght@400;600' },
@@ -56,8 +57,9 @@ function applyLook(s) {
   const f = LOOK.font[s.font] || LOOK.font.gothic;
   r.setProperty('--font', `"${f.kr}",-apple-system,"Apple SD Gothic Neo",sans-serif`);
   r.setProperty('--jp', `"${f.jp}","Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif`);
-  const link = document.getElementById('fontLink'), href = `https://fonts.googleapis.com/css2?${f.q}&display=swap`;
-  if (link && link.href !== href) link.href = href;
+  const link = document.getElementById('fontLink'), href = f.q ? `https://fonts.googleapis.com/css2?${f.q}&display=swap` : '';
+  if (link && href && link.href !== href) link.href = href; else if (link && !href) link.removeAttribute('href');
+  document.documentElement.dataset.shape = s.shape || 'apple';
   const meta = document.getElementById('themeColor'); if (meta) meta.content = p[0];
 }
 try { applyLook(JSON.parse(localStorage.getItem('jp-v1') || '{}').settings || {}); } catch { applyLook({}); }
@@ -279,6 +281,69 @@ header h1 small{display:block;font-size:14px;font-weight:500;color:var(--sub);le
 .done .num{font-size:72px;font-weight:700;line-height:1;color:var(--accent)}
 .done p{margin:0;font-size:16px;color:var(--sub);line-height:1.7}
 .done .two{width:min(480px,100%)}
+/* 미니 버튼 아이콘은 애플 모양에서만 */
+.mode.mini .mi{display:none}
+
+/* ───── 애플 모양: iOS 설정·미리 알림 같은 평평한 카드, 큰 제목, 스위치 ───── */
+:root[data-shape="apple"]{--r:14px}
+[data-shape="apple"] .wrap{gap:22px;padding-top:20px}
+[data-shape="apple"] header h1{font-size:34px;font-weight:700;letter-spacing:-0.025em}
+[data-shape="apple"] header h1 small{font-size:15px;font-weight:400}
+[data-shape="apple"] .dday{box-shadow:none;background:var(--surface);color:var(--accent);font-weight:600}
+[data-shape="apple"] .ghost{box-shadow:none;background:var(--surface);color:var(--accent);border-radius:99px}
+/* 탭: 위에 붙어 있고 뒤가 흐리게 비쳐요 */
+[data-shape="apple"] .tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;padding:2px;border-radius:10px;
+  background:color-mix(in srgb, var(--soft) 82%, transparent);-webkit-backdrop-filter:blur(20px) saturate(1.6);backdrop-filter:blur(20px) saturate(1.6)}
+[data-shape="apple"] .tabs button{height:36px;border-radius:8px;font-size:14px}
+[data-shape="apple"] .tabs button[aria-selected="true"],[data-shape="apple"] .seg button[aria-pressed="true"]{box-shadow:0 3px 8px rgba(0,0,0,.12),0 3px 1px rgba(0,0,0,.04)}
+[data-shape="apple"] .seg{padding:2px;border-radius:9px;gap:2px}
+[data-shape="apple"] .seg button{min-height:34px;border-radius:7px;font-size:14px}
+/* 카드: 그림자 없이 평평하게, 줄 사이 얇은 선 */
+[data-shape="apple"] .panel,[data-shape="apple"] .list,[data-shape="apple"] .empty,[data-shape="apple"] .dline{box-shadow:none;border-radius:var(--r)}
+[data-shape="apple"] .panel{padding:14px 16px 16px}
+[data-shape="apple"] .panel>h2{font-size:13px;font-weight:600;color:var(--sub);margin:0 0 4px}
+[data-shape="apple"] .panel>h2 small{font-weight:400}
+[data-shape="apple"] .sec{font-size:20px;font-weight:700}
+[data-shape="apple"] .panel .rows{margin:0 -16px -16px}
+[data-shape="apple"] .panel .row{margin-left:16px;padding:11px 16px 11px 0;grid-template-columns:96px 1fr}
+[data-shape="apple"] .row+.row{border-top:.5px solid var(--line)}
+[data-shape="apple"] .item+.item{border-top:.5px solid var(--line)}
+/* 큰 타일: 흰 카드 + 색 있는 둥근 네모 아이콘 */
+[data-shape="apple"] .mode{box-shadow:none;border-radius:var(--r);min-height:118px;padding:16px}
+[data-shape="apple"] .mode.main{background:var(--surface);color:var(--ink)}
+[data-shape="apple"] .mode.main span{color:var(--sub);opacity:1}
+[data-shape="apple"] .mode span.ic{display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:11px;background:var(--accent);color:var(--on-accent);font-size:22px}
+[data-shape="apple"] .mode.kana span.ic{background:color-mix(in srgb, var(--accent) 16%, var(--surface));color:var(--accent)}
+/* 약한 것·헷갈리는 것·별표: 미리 알림 앱처럼 아이콘 + 큰 숫자 */
+[data-shape="apple"] .mode.mini{min-width:0;overflow:hidden;display:grid;grid-template-columns:auto 1fr;grid-template-areas:"ic n" "t t";align-items:center;gap:10px 8px;padding:12px 14px}
+[data-shape="apple"] .mode.mini .mi{grid-area:ic;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;font-style:normal;font-size:15px;font-weight:700;color:#fff;background:var(--sub)}
+[data-shape="apple"] .mode.mini.weak .mi{background:var(--bad)}
+[data-shape="apple"] .mode.mini.conf .mi{background:var(--warn)}
+[data-shape="apple"] .mode.mini.fav .mi{background:var(--star)}
+[data-shape="apple"] .mode.mini span{grid-area:n;justify-self:end;font-size:22px;font-weight:700;color:var(--ink)}
+[data-shape="apple"] .mode.mini b{grid-area:t;font-size:14px;font-weight:600;color:var(--sub)}
+[data-shape="apple"] .mode.mini.weak b,[data-shape="apple"] .mode.mini.conf b{color:var(--sub)}
+[data-shape="apple"] .lgrid li{border-radius:11px}
+/* 칩·버튼 */
+[data-shape="apple"] .chips button{border:none;background:var(--soft);min-height:34px;font-size:14px}
+[data-shape="apple"] .chips button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+[data-shape="apple"] .go{height:50px;border-radius:12px;font-size:17px}
+[data-shape="apple"] .go.line{border:none;background:color-mix(in srgb, var(--accent) 13%, var(--surface));color:var(--accent)}
+[data-shape="apple"] .say{border-radius:50%;background:color-mix(in srgb, var(--accent) 13%, var(--surface))}
+/* 체크박스 → 아이폰 스위치 */
+[data-shape="apple"] .toggle input{-webkit-appearance:none;appearance:none;width:51px;height:31px;border-radius:99px;margin:0;cursor:pointer;transition:background-color .2s;
+  background:radial-gradient(circle at 15.5px 50%, #fff 13.5px, transparent 14px) var(--line);box-shadow:inset 0 0 0 .5px rgba(0,0,0,.06)}
+[data-shape="apple"] .toggle input:checked{background:radial-gradient(circle at calc(100% - 15.5px) 50%, #fff 13.5px, transparent 14px) var(--good)}
+[data-shape="apple"] .field input{border:none;background:var(--soft)}
+/* 공부 화면 */
+[data-shape="apple"] .card{border-radius:20px}
+[data-shape="apple"] .stop .prog{height:4px}
+[data-shape="apple"] .stop .ghost{color:var(--accent)}
+[data-shape="apple"] .padbar button{box-shadow:none}
+[data-shape="apple"] .padbar button:not(.ok){background:color-mix(in srgb, var(--accent) 13%, var(--surface));color:var(--accent)}
+[data-shape="apple"] .ans input{box-shadow:none;border:none}
+[data-shape="apple"] .res{border-radius:14px}
+[data-shape="apple"] .badge{border-radius:6px}
 </style>
 </head>
 <body>
@@ -345,9 +410,9 @@ header h1 small{display:block;font-size:14px;font-weight:500;color:var(--sub);le
       </div>
       <div class="col">
         <div class="minis">
-          <button class="mode mini weak" data-mode="weak"><b>약한 것만</b><span id="nWeak"></span></button>
-          <button class="mode mini conf" data-mode="confuse"><b>헷갈리는 것</b><span id="nConf"></span></button>
-          <button class="mode mini" data-mode="star"><b>★ 별표만</b><span id="nStar"></span></button>
+          <button class="mode mini weak" data-mode="weak"><i class="mi">!</i><b>약한 것만</b><span id="nWeak"></span></button>
+          <button class="mode mini conf" data-mode="confuse"><i class="mi">⇄</i><b>헷갈리는 것</b><span id="nConf"></span></button>
+          <button class="mode mini fav" data-mode="star"><i class="mi">★</i><b>별표만</b><span id="nStar"></span></button>
         </div>
         <div class="panel">
           <h2>과별 진도</h2>
@@ -391,6 +456,11 @@ header h1 small{display:block;font-size:14px;font-weight:500;color:var(--sub);le
             <div class="row"><span class="k">바탕색</span><div class="v"><div class="swatches" id="bgSw"></div></div></div>
             <div class="row"><span class="k">포인트 색</span><div class="v"><div class="swatches" id="accentSw"></div></div></div>
             <div class="row"><span class="k">글씨체</span><div class="v"><div class="fonts" id="fontOpts"></div></div></div>
+            <div class="row"><span class="k">모양</span><div class="v">
+              <div class="seg" id="shapeSeg">
+                <button data-v="apple">애플</button>
+                <button data-v="soft">부드럽게</button>
+              </div></div></div>
             <div class="row"><span class="k">밝기</span><div class="v">
               <div class="seg" id="themeSeg">
                 <button data-v="auto">자동</button>
@@ -532,7 +602,7 @@ const lessonName = no => { const L = LESSONS.find(l => l.no === no); return less
 
 /* ---------- 저장 ---------- */
 const KEY = 'jp-v1';
-const DEF = { wordKind: 'all', bg: 'paper', accent: 'indigo', font: 'gothic', kanaSets: ['seion', 'daku', 'yoon'], dir: 'jk', method: 'card', size: '20', lessons: [], examDate: '', autoSpeak: false, showKana: true, theme: 'auto' };
+const DEF = { shape: 'apple', wordKind: 'all', bg: 'paper', accent: 'indigo', font: 'gothic', kanaSets: ['seion', 'daku', 'yoon'], dir: 'jk', method: 'card', size: '20', lessons: [], examDate: '', autoSpeak: false, showKana: true, theme: 'auto' };
 let DB;
 try { DB = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { DB = {}; }
 DB.settings = Object.assign({}, DEF, DB.settings);
@@ -782,6 +852,7 @@ function segBind(el, key, after) {
 function segShow(el, v) { el.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === String(v))); }
 segBind($('#dirSeg'), 'dir'); segBind($('#methodSeg'), 'method'); segBind($('#sizeSeg'), 'size'); segBind($('#wordKindSeg'), 'wordKind');
 segBind($('#themeSeg'), 'theme', () => applyLook(S));
+segBind($('#shapeSeg'), 'shape', () => applyLook(S));
 // 꾸미기는 머리말의 LOOK·applyLook을 써요
 applyLook(S);
 matchMedia('(prefers-color-scheme:dark)').addEventListener?.('change', () => applyLook(S));
@@ -855,7 +926,7 @@ function renderHome() {
   $('#nWeak').textContent = `${weak.length}개`;
   $('#nStar').textContent = `${star.length}개`;
   const conf = activePairs();
-  $('#nConf').textContent = `${conf.length}쌍 · 묶음 ${GROUPS.length}`;
+  $('#nConf').textContent = `${conf.length}쌍`;
   document.querySelector('[data-mode="confuse"]').disabled = !conf.length && !GROUPS.length;
   document.querySelector('[data-mode="weak"]').disabled = !weak.length;
   document.querySelector('[data-mode="star"]').disabled = !star.length;
@@ -952,7 +1023,7 @@ function renderSet() {
   $('#examDate').value = S.examDate;
   $('#autoSpeak').checked = S.autoSpeak;
   $('#showKana').checked = S.showKana;
-  segShow($('#themeSeg'), S.theme);
+  segShow($('#themeSeg'), S.theme); segShow($('#shapeSeg'), S.shape || 'apple');
   const dark = document.documentElement.style.colorScheme === 'dark';
   $('#bgSw').innerHTML = Object.entries(LOOK.bg).map(([k, v]) => `<button class="sw" data-k="${k}" aria-pressed="${(S.bg || 'paper') === k}"><i style="background:${v[dark ? 'd' : 'l'][0]}"></i>${v.name}</button>`).join('');
   $('#accentSw').innerHTML = Object.entries(LOOK.accent).map(([k, v]) => `<button class="sw" data-k="${k}" aria-pressed="${(S.accent || 'indigo') === k}"><i style="background:${v.c[dark ? 2 : 0]}"></i>${v.name}</button>`).join('');
@@ -960,7 +1031,7 @@ function renderSet() {
   // 미리 보기용으로 네 가지 글씨체를 다 불러 둬요 (설정 화면에서만)
   if (!document.getElementById('fontPreview')) {
     const l = document.createElement('link'); l.rel = 'stylesheet'; l.id = 'fontPreview';
-    l.href = 'https://fonts.googleapis.com/css2?' + Object.values(LOOK.font).map(f => f.q).join('&') + '&text=' + encodeURIComponent('あいう 가나다') + '&display=swap';
+    l.href = 'https://fonts.googleapis.com/css2?' + Object.values(LOOK.font).map(f => f.q).filter(Boolean).join('&') + '&text=' + encodeURIComponent('あいう 가나다') + '&display=swap';
     document.head.appendChild(l);
   }
   const pick = (sel, key) => $(sel).querySelectorAll('button').forEach(b => b.onclick = () => { S[key] = b.dataset.k; save(); applyLook(S); renderSet(); });
