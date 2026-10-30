@@ -395,6 +395,16 @@ header h1 small{display:block;font-size:14px;font-weight:500;color:var(--sub);le
 /* ④ 눌림 반응: 옅은 버튼은 살짝 더 진하게 */
 [data-shape="apple"] .chips button:active,[data-shape="apple"] .go.line:active,[data-shape="apple"] .padbar button:active{filter:brightness(.88)}
 
+/* ───── 동심 모서리: 안쪽 모서리 = 바깥 모서리 − 여백 (WWDC25 Liquid Glass 규칙). 너무 각지지 않게 최소 10px ───── */
+:root[data-shape="apple"]{--r:22px;--pad:16px;--r-in:max(10px, calc(var(--r) - var(--pad)))}
+[data-shape="apple"] .panel{padding:14px var(--pad) var(--pad)}
+[data-shape="apple"] .mode{padding:var(--pad)}
+[data-shape="apple"] .tabs{border-radius:12px}
+[data-shape="apple"] .tabs button{border-radius:10px}
+[data-shape="apple"] :is(.seg,.go,.field input,.lgrid li,.fonts button,.del,.padbar button,.res,.mode span.ic){border-radius:var(--r-in)}
+[data-shape="apple"] .seg button{border-radius:calc(var(--r-in) - 2px)}
+[data-shape="apple"] :is(.card,.pad){border-radius:28px}
+
 /* ───── 배경 사진 + 유리 모양 (Liquid Glass 비슷하게: 흐림 + 반투명 + 빛 테두리) ───── */
 #bgPhoto{display:none}
 :root[data-photo="1"] #bgPhoto{display:block;position:fixed;inset:0;z-index:-1;background:var(--photo) center/cover no-repeat}
