@@ -320,6 +320,12 @@ header h1 small{display:block;font-size:14px;font-weight:500;color:var(--sub);le
               <button data-v="type">자판</button>
             </div>
             <p class="hint" id="methodHint"></p></div></div>
+          <div class="row"><span class="k">단어 종류</span><div class="v">
+            <div class="seg" id="wordKindSeg">
+              <button data-v="all">모두</button>
+              <button data-v="hira">히라가나 단어</button>
+              <button data-v="kata">가타카나 단어</button>
+            </div></div></div>
           <div class="row"><span class="k">한 번에</span><div class="v">
             <div class="seg" id="sizeSeg">
               <button data-v="20">20개</button>
@@ -516,7 +522,7 @@ const lessonName = no => { const L = LESSONS.find(l => l.no === no); return less
 
 /* ---------- 저장 ---------- */
 const KEY = 'jp-v1';
-const DEF = { bg: 'paper', accent: 'indigo', font: 'gothic', kanaSets: ['seion', 'daku', 'yoon'], dir: 'jk', method: 'card', size: '20', lessons: [], examDate: '', autoSpeak: false, showKana: true, theme: 'auto' };
+const DEF = { wordKind: 'all', bg: 'paper', accent: 'indigo', font: 'gothic', kanaSets: ['seion', 'daku', 'yoon'], dir: 'jk', method: 'card', size: '20', lessons: [], examDate: '', autoSpeak: false, showKana: true, theme: 'auto' };
 let DB;
 try { DB = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { DB = {}; }
 DB.settings = Object.assign({}, DEF, DB.settings);
@@ -673,12 +679,19 @@ function segBind(el, key, after) {
   el.querySelectorAll('button').forEach(b => b.onclick = () => { S[key] = b.dataset.v; save(); after && after(); render(); });
 }
 function segShow(el, v) { el.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === String(v))); }
-segBind($('#dirSeg'), 'dir'); segBind($('#methodSeg'), 'method'); segBind($('#sizeSeg'), 'size');
+segBind($('#dirSeg'), 'dir'); segBind($('#methodSeg'), 'method'); segBind($('#sizeSeg'), 'size'); segBind($('#wordKindSeg'), 'wordKind');
 segBind($('#themeSeg'), 'theme', () => applyLook(S));
 // 꾸미기는 머리말의 LOOK·applyLook을 써요
 applyLook(S);
 matchMedia('(prefers-color-scheme:dark)').addEventListener?.('change', () => applyLook(S));
 
+/* 단어 종류: 히라가나로만 된 단어 / 가타카나로만 된 단어 (ー·～ 같은 기호는 빼고 봐요, 한자가 있으면 히라가나 단어가 아니에요) */
+const wordKind = it => {
+  const t = it.ja.replace(/[\sー～〜・、。！？!?()（）\-]/g, '');
+  const hira = /[\u3041-\u309f]/.test(t), kata = /[\u30a0-\u30ff]/.test(t), kanji = /[\u4e00-\u9fff]/.test(t);
+  return kata && !hira && !kanji ? 'kata' : hira && !kata && !kanji ? 'hira' : 'mix';
+};
+const kindOk = it => it.kind !== 'w' || S.wordKind === 'all' || wordKind(it) === S.wordKind;
 const inScope = it => !S.lessons.length || S.lessons.includes(it.lesson);
 function daysLeft() {
   if (!S.examDate) return null;
@@ -719,6 +732,7 @@ function renderHome() {
     $(el).textContent = `${its.length}자 · 외움 ${its.filter(i => isKnown(i.id)).length}`;
     $(el).closest('button').disabled = !its.length;
   }
+  segShow($('#wordKindSeg'), S.wordKind);
   segShow($('#dirSeg'), S.dir); segShow($('#methodSeg'), method()); segShow($('#sizeSeg'), S.size);
   $('#methodSeg [data-v="pen"]').disabled = S.dir === 'jk';
   $('#methodHint').textContent = S.dir === 'jk' && S.method === 'pen' ? '한국어로 답할 때는 손글씨 대신 키보드로 한국어 뜻을 쳐요. 한국어 → 일본어로 바꾸면 다시 손글씨로 해요.' : METHOD_HINT[method()];
@@ -733,7 +747,7 @@ function renderHome() {
   });
 
   const scope = ITEMS.filter(inScope);
-  const w = scope.filter(i => i.kind === 'w'), l = scope.filter(i => i.kind === 'd');
+  const w = scope.filter(i => i.kind === 'w' && kindOk(i)), l = scope.filter(i => i.kind === 'd');
   const weak = scope.filter(i => isWeak(i.id)), star = scope.filter(i => isStar(i.id));
   $('#nWords').textContent = `${w.length}개 · 외움 ${w.filter(i => isKnown(i.id)).length}`;
   $('#nLines').textContent = `${l.length}문장 · 외움 ${l.filter(i => isKnown(i.id)).length}`;
@@ -882,7 +896,7 @@ $('#resetBtn').onclick = () => {
 /* ---------- 공부 ---------- */
 function start(mode) {
   let pool;
-  if (mode === 'words') pool = ITEMS.filter(i => i.kind === 'w' && inScope(i));
+  if (mode === 'words') pool = ITEMS.filter(i => i.kind === 'w' && inScope(i) && kindOk(i));
   else if (mode === 'lines') pool = ITEMS.filter(i => i.kind === 'd' && inScope(i));
   else if (mode === 'weak') pool = ITEMS.filter(i => inScope(i) && isWeak(i.id));
   else if (mode === 'star') pool = ITEMS.filter(i => inScope(i) && isStar(i.id));
