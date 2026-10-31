@@ -289,8 +289,8 @@ img.photo,.sol img{cursor:zoom-in}
 
       <div class="field">
         <span>문제집 (선택)</span>
-        <div class="chips" id="bookChips" hidden></div>
-        <input id="book" placeholder="예: 쎈, 마더텅, 학교 프린트" autocomplete="off" maxlength="30">
+        <div class="chips" id="bookChips"></div>
+        <p class="hint" id="bookHint"></p>
       </div>
 
       <label class="field">
@@ -364,7 +364,7 @@ const NEED = { 하: 2, 중: 3, 상: 4 };       // 연속으로 이만큼 맞히�
 const BASE_SUBJECTS = ['국어', '수학', '영어', '과학', '사회', '한국사'];
 const REASONS = ['계산 실수', '개념 부족', '문제 잘못 읽음', '시간 부족', '찍음', '기타'];
 const DOW = '일월화수목금토';
-const LS_SUBJ = 'review-subjects', LS_SET = 'review-settings';
+const LS_SUBJ = 'review-subjects', LS_SET = 'review-settings', LS_BOOKS = 'review-books';
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -755,6 +755,13 @@ function examQueue() {
 /* ---------- 과목 ---------- */
 function customSubjects() { try { return JSON.parse(localStorage.getItem(LS_SUBJ) || '[]'); } catch { return []; } }
 function subjects() { return [...new Set([...BASE_SUBJECTS, ...customSubjects(), ...items.map(i => i.subject)])]; }
+// 과목마다 문제집 목록: { 수학: ['쎈', '마더텅'], ... } + 이미 등록한 문제에 쓴 문제집
+function customBooks() { try { return JSON.parse(localStorage.getItem(LS_BOOKS) || '{}'); } catch { return {}; } }
+function booksOf(subject) { return [...new Set([...(customBooks()[subject] || []), ...items.filter(i => i.subject === subject && i.book).map(i => i.book)])]; }
+function addBook(subject, name) {
+  const all = customBooks(), list = all[subject] || [];
+  if (!list.includes(name)) { all[subject] = [...list, name]; try { localStorage.setItem(LS_BOOKS, JSON.stringify(all)); } catch {} }
+}
 function addSubject(name) {
   const list = customSubjects();
   if (!list.includes(name)) { list.push(name); try { localStorage.setItem(LS_SUBJ, JSON.stringify(list)); } catch {} }
@@ -944,10 +951,10 @@ async function renderReview() {
 function toResult(r) { ses.r = { reason: '', memo: '', ...r }; ses.phase = 'result'; renderReview(); }
 
 /* ---------- 등록 · 수정 ---------- */
-const form = { editing: null, subject: '', level: '중', reason: '', q: null, t: null, s: null, qEdit: null, sEdit: null, sDel: false };
+const form = { editing: null, subject: '', book: '', level: '중', reason: '', q: null, t: null, s: null, qEdit: null, sEdit: null, sDel: false };
 
 function resetForm() {
-  Object.assign(form, { editing: null, subject: '', level: '중', reason: '', q: null, t: null, s: null, qEdit: null, sEdit: null, sDel: false });
+  Object.assign(form, { editing: null, subject: '', book: '', level: '중', reason: '', q: null, t: null, s: null, qEdit: null, sEdit: null, sDel: false });
   $('addForm').reset();
   setShot('qShot', '', '눌러서 사진 찍기 · 고르기');
   setShot('sShot', '', '해설·풀이 사진 추가');
@@ -978,19 +985,23 @@ function renderAdd() {
   $('units').innerHTML = units.map(u => `<option value="${esc(u)}">`).join('');
   renderBookChips();
 }
-// 이 과목에서 쓴 문제집을 버튼으로 (누르면 칸에 채워져요)
+// 고른 과목의 문제집 버튼 + '문제집 추가' (과목 버튼과 같은 방식). 고른 걸 다시 누르면 선택 풀기
 function renderBookChips() {
-  const books = [...new Set(items.filter(i => i.subject === form.subject && i.book).map(i => i.book))];
-  const v = $('book').value.trim();
-  $('bookChips').hidden = !books.length;
-  $('bookChips').innerHTML = books.map(b => `<button type="button" aria-pressed="${b === v}">${esc(b)}</button>`).join('');
+  $('bookChips').hidden = !form.subject;
+  $('bookHint').textContent = form.subject ? '안 고르면 문제집 없이 등록돼요. 고른 걸 한 번 더 누르면 풀려요.' : '과목을 먼저 골라 주세요.';
+  if (!form.subject) return;
+  $('bookChips').innerHTML = booksOf(form.subject).map(b => `<button type="button" aria-pressed="${form.book === b}">${esc(b)}</button>`).join('') + '<button type="button" class="add" data-new>+ 문제집 추가</button>';
 }
 $('bookChips').onclick = e => {
   const b = e.target.closest('button'); if (!b) return;
-  $('book').value = $('book').value.trim() === b.textContent ? '' : b.textContent;
+  if (b.hasAttribute('data-new')) {
+    const name = (prompt(`${form.subject} 문제집 이름`) || '').trim().slice(0, 20);
+    if (!name) return;
+    addBook(form.subject, name);
+    form.book = name;
+  } else form.book = form.book === b.textContent ? '' : b.textContent;
   renderBookChips();
 };
-$('book').oninput = renderBookChips;
 
 $('subjChips').onclick = e => {
   const b = e.target.closest('button'); if (!b) return;
@@ -1000,8 +1011,8 @@ $('subjChips').onclick = e => {
     addSubject(name);
     form.subject = name;
   } else form.subject = b.textContent;
-  // 다른 과목으로 바꾸면 그 과목에 없는 문제집 이름은 지워요
-  if (!items.some(i => i.subject === form.subject && i.book === $('book').value.trim())) $('book').value = '';
+  // 다른 과목으로 바꾸면 문제집 선택은 풀어요 (문제집은 과목마다 따로라서)
+  if (!booksOf(form.subject).includes(form.book)) form.book = '';
   renderAdd();
 };
 $('levelSeg').onclick = e => { const b = e.target.closest('button'); if (b) { form.level = b.dataset.l; renderAdd(); } };
@@ -1048,7 +1059,7 @@ $('addForm').onsubmit = async e => {
   try {
     const t = today();
     const it = old || { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), created: t, due: addDays(t, STEPS[0]), streak: 0, done: false, retryDay: t, history: [{ day: t, ok: false, reg: true }] };
-    Object.assign(it, { subject: form.subject, book: $('book').value.trim(), unit: $('unit').value.trim(), level: form.level, answer: $('answer').value.trim() });
+    Object.assign(it, { subject: form.subject, book: form.book, unit: $('unit').value.trim(), level: form.level, answer: $('answer').value.trim() });
     const reg = it.history.find(h => h.reg);
     if (reg) Object.assign(reg, { reason: form.reason, memo: $('addMemo').value.trim() });
     if (form.q) { await putPhoto(it.id + '-q', form.q); await putPhoto(it.id + '-t', form.t); forgetUrl(it.id + '-q'); forgetUrl(it.id + '-t'); }
@@ -1059,11 +1070,11 @@ $('addForm').onsubmit = async e => {
     if (!old) items.push(it);
     // 사파리가 저장 공간이 부족할 때 사진을 지우지 않도록 요청
     if (!persisted && navigator.storage && navigator.storage.persist) { persisted = true; navigator.storage.persist().catch(() => {}); }
-    const keepSubject = form.subject, keepLevel = form.level, keepBook = $('book').value.trim();
+    const keepSubject = form.subject, keepLevel = form.level, keepBook = form.book;
     resetForm();
     if (old) { toast('수정했어요'); show('list'); }
     else {
-      form.subject = keepSubject; form.level = keepLevel; $('book').value = keepBook;   // 연달아 등록하기 편하게
+      form.subject = keepSubject; form.level = keepLevel; form.book = keepBook;   // 연달아 등록하기 편하게
       toast('등록했어요 · 오늘 다시 풀기에 넣었어요');
       renderAdd();
       scrollTo({ top: 0 });
@@ -1079,7 +1090,7 @@ async function startEdit(id) {
   resetForm();
   const reg = it.history.find(h => h.reg) || {};
   Object.assign(form, { editing: id, subject: it.subject, level: it.level, reason: reg.reason || '' });
-  $('book').value = it.book || ''; $('unit').value = it.unit; $('answer').value = it.answer; $('addMemo').value = reg.memo || '';
+  form.book = it.book || ''; $('unit').value = it.unit; $('answer').value = it.answer; $('addMemo').value = reg.memo || '';
   setShot('qShot', await photoUrl(id + '-q'));
   if (it.sol) setShot('sShot', await photoUrl(id + '-s'));
   $('addBtn').textContent = '수정하기';
@@ -1287,7 +1298,7 @@ async function exportBackup() {
     const photos = await tx('photos', 'readonly', s => s.getAll());
     const ph = [];
     for (const x of photos) ph.push({ id: x.id, data: await toDataUrl(x.blob) });
-    const blob = new Blob([JSON.stringify({ app: 'review', version: 1, exported: new Date().toISOString(), subjects: customSubjects(), settings: SET, items, photos: ph })], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify({ app: 'review', version: 1, exported: new Date().toISOString(), subjects: customSubjects(), books: customBooks(), settings: SET, items, photos: ph })], { type: 'application/json' });
     const name = `오답백업-${today()}.json`;
     const file = new File([blob], name, { type: 'application/json' });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -1311,6 +1322,7 @@ $('importFile').onchange = async e => {
     for (const x of data.photos || []) { await putPhoto(x.id, await (await fetch(x.data)).blob()); forgetUrl(x.id); }
     for (const it of data.items) await putItem(it);
     for (const s of data.subjects || []) addSubject(s);
+    for (const [sub, list] of Object.entries(data.books || {})) for (const b of list) addBook(sub, b);
     if (data.settings) { SET = { ...SET, ...data.settings }; saveSet(); applyTheme(); }
     items = await tx('items', 'readonly', s => s.getAll());
     toast(`${data.items.length}개를 불러왔어요`);
