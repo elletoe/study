@@ -97,10 +97,6 @@ h2.sec{margin:0;font-size:18px;font-weight:900}
 .retry b{font-size:16px;font-weight:900}
 .retry p{margin:4px 0 0;font-size:13px;color:var(--sub);line-height:1.6}
 .retry .go{background:var(--bad);color:#fff}
-.week7{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
-.week7 div{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 0;border-radius:10px;background:var(--soft);font-size:11px;color:var(--sub);font-weight:500}
-.week7 b{font-size:16px;color:var(--ink);font-variant-numeric:tabular-nums}
-.week7 .z b{color:var(--line)}
 .rows{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:14px;overflow:hidden}
 .rows button{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:12px 14px;border:none;background:var(--bg);text-align:left;font-size:15px}
 .rows button+button{border-top:1px solid var(--line)}
@@ -715,9 +711,15 @@ let items = [];
 const need = it => NEED[it.level] + (it.subject === '수학' ? 1 : 0);
 const isDue = it => !it.done && it.due <= today();
 const isRetry = it => !it.done && it.retryDay === today() && it.due > today();
+// 날짜 대신 '푼 지 며칠'·'며칠 뒤'로만 보여 줘요 (다음 복습은 마지막으로 푼 날부터 세요)
+const ago = day => { const n = diffDays(day, today()); return n <= 0 ? '오늘' : n === 1 ? '어제' : `${n}일 전`; };
+const lastSolved = it => it.history[it.history.length - 1].day;
+const solvedAgo = it => { const a = ago(lastSolved(it)); return a === '오늘' ? '오늘 풂' : a + '에 풂'; };
+const dueIn = it => { const n = diffDays(today(), it.due); return n <= 0 ? '복습할 차례' : n === 1 ? '하루 뒤' : `${n}일 뒤`; };
 const byDue = (a, b) => a.due.localeCompare(b.due) || a.created.localeCompare(b.created);
 
-// 맞히면 다음 간격으로, 연속 정답이 채워지면 완료. 틀리면 처음(내일)부터 + 오늘 다시 풀기
+// 맞히면 다음 간격으로, 연속 정답이 채워지면 완료. 틀리면 처음(하루 뒤)부터 + 오늘 다시 풀기
+// 다음 복습은 늘 '푼 날'부터 세요 (늦게 풀어도 그날부터 다시 1·3·7·14일)
 // 다시 풀기·시험 대비·골라 풀기에서 맞히면 날짜는 그대로. 시험 대비·골라 풀기에서 틀리면 완료한 문제도 다시 복습으로
 function grade(it, r) {
   const t = today();
@@ -881,22 +883,21 @@ function groupBy(list, key) {
 
 // tag: 섞어서 화면에서 줄마다 문제집 이름 표시 (문제집별로 묶였을 땐 빼요)
 function rowHTML(it, tag = nav.book === null) {
-  const late = it.due < today() ? `<span class="late">${diffDays(it.due, today())}일 밀림</span> · ` : '';
+  const late = `${solvedAgo(it)} · `;
   tag = tag ? `<span class="tag">${esc(bookName(it.book))}</span>` : '<span></span>';
   return `<button data-open="${it.id}">${tag}<span class="un">${esc(it.unit || '단원 없음')}</span><span class="meta">${late}${it.level} · ${it.streak}/${need(it)}</span></button>`;
 }
 
-// 오늘 복습 카드: list = 오늘 풀 문제(하루 개수 제한 반영), all = 제한 없이 밀린 것까지, attr = 범위 표시
+// 복습 카드: list = 지금 풀 문제(하루 개수 제한 반영), all = 제한 없이 차례가 된 것 전부, attr = 범위 표시
 function todayCard(label, list, all, attr) {
-  const late = list.filter(i => i.due < today()).length, held = all.length - list.length;
+  const held = all.length - list.length;
   let h = `<div class="big"><span class="label">${label}</span><div class="num">${list.length}<small>개</small></div>`;
-  if (late) h += `<p class="sub">밀린 문제 ${late}개 포함</p>`;
   if (list.length) {
     h += `<button class="go" data-start="due"${attr}>복습 시작</button>`;
-    if (held) h += `<p class="hint">하루 최대 ${SET.cap}개(모든 과목 합쳐서)라서 ${held}개는 내일 먼저 나와요.</p>`;
+    if (held) h += `<p class="hint">하루 최대 ${SET.cap}개(모든 과목 합쳐서)라서 ${held}개는 다음 날 먼저 나와요.</p>`;
   } else if (held) {
     h += `<p class="hint">오늘 정한 ${SET.cap}개를 다 했어요.</p><button class="go line" data-start="due" data-all="1"${attr}>더 풀기 (${held}개 남음)</button>`;
-  } else h += '<p class="hint">오늘 복습은 다 했어요.</p>';
+  } else h += '<p class="hint">복습할 차례인 문제를 다 풀었어요.</p>';
   return h + '</div>';
 }
 const retryCard = (retry, attr) => retry.length ? `<div class="retry"><div><b>오늘 틀린 문제 다시 풀기 ${retry.length}개</b><p>답을 본 직후보다 조금 지나서 풀면 더 잘 기억나요. 여기서 맞혀도 복습 날짜는 그대로예요.</p></div><button class="go" data-start="retry"${attr}>다시 풀기</button></div>` : '';
@@ -908,16 +909,16 @@ function examCard() {
   return h + '<button class="link" data-exam>시험 설정 바꾸기</button></div>';
 }
 
-/* ---------- 첫 화면: 전체 오늘 복습 + 과목 카드 ---------- */
+/* ---------- 첫 화면: 모든 과목 복습 + 과목 카드 ---------- */
 function renderHome() {
   const due = todayQueue();
   let h = '';
-  if (!items.length) h += '<div class="hello"><b>과목을 골라 첫 오답을 등록해 보세요</b><p>과목 → 문제집으로 들어가서 틀린 문제 사진을 올리면 1일 → 3일 → 7일 → 14일 간격으로 다시 풀 문제를 띄워 줘요. 연속으로 맞히면 끝나요 (하 2번 · 중 3번 · 상 4번, 수학은 1번씩 더).</p></div>';
-  else h += todayCard('오늘 복습할 문제 (모든 과목)', due, items.filter(isDue), '') + retryCard(items.filter(isRetry), '') + examCard();
+  if (!items.length) h += '<div class="hello"><b>과목을 골라 첫 오답을 등록해 보세요</b><p>과목 → 문제집으로 들어가서 틀린 문제 사진을 올리면 마지막으로 푼 날부터 1일 → 3일 → 7일 → 14일 뒤에 다시 나와요. 연속으로 맞히면 끝나요 (하 2번 · 중 3번 · 상 4번, 수학은 1번씩 더).</p></div>';
+  else h += todayCard('복습할 문제 (모든 과목)', due, items.filter(isDue), '') + retryCard(items.filter(isRetry), '') + examCard();
   h += '<div class="field"><span class="label">과목</span><div class="sgrid">';
   for (const s of subjects()) {
     const n = items.filter(i => i.subject === s).length, d = due.filter(i => i.subject === s).length;
-    h += `<button class="scard" data-subject="${esc(s)}"><b>${esc(s)}</b><small${d ? ' class="due"' : ''}>${d ? `오늘 ${d}개` : n ? '오늘은 없음' : '아직 없음'}</small><span>${n}문제 · 문제집 ${booksOf(s).length}개</span></button>`;
+    h += `<button class="scard" data-subject="${esc(s)}"><b>${esc(s)}</b><small${d ? ' class="due"' : ''}>${d ? `복습 ${d}개` : n ? '복습할 차례 없음' : '아직 없음'}</small><span>${n}문제 · 문제집 ${booksOf(s).length}개</span></button>`;
   }
   h += '<button class="scard add" data-newsubj>+ 과목 추가</button></div></div>';
   h += (examOn() ? '' : '<button class="go line" data-exam>시험 대비 모드 켜기</button>') + '<button class="go line" data-settings>설정 · 백업</button>';
@@ -956,21 +957,15 @@ function renderSettings() {
 
 /* ---------- 오늘 (문제집 안) ---------- */
 function renderToday() {
-  const p = $('p-today'), t = today(), mine = navItems();
+  const p = $('p-today'), mine = navItems();
   if (!mine.length) {
-    p.innerHTML = `<div class="hello"><b>${esc(scopeName())} 문제가 아직 없어요</b><p>틀린 문제 사진을 올리면 1일 → 3일 → 7일 → 14일 간격으로 다시 풀 문제를 띄워 줘요. 연속으로 맞히면 끝나요 (하 2번 · 중 3번 · 상 4번, 수학은 1번씩 더).</p><button class="go" data-tab="add">오답 등록하기</button></div>`;
+    p.innerHTML = `<div class="hello"><b>${esc(scopeName())} 문제가 아직 없어요</b><p>틀린 문제 사진을 올리면 마지막으로 푼 날부터 1일 → 3일 → 7일 → 14일 뒤에 다시 나와요. 연속으로 맞히면 끝나요 (하 2번 · 중 3번 · 상 4번, 수학은 1번씩 더).</p><button class="go" data-tab="add">오답 등록하기</button></div>`;
     return;
   }
   const due = todayQueue().filter(inNav);
-  let h = todayCard('오늘 복습할 문제', due, mine.filter(isDue), ' data-scope') + retryCard(mine.filter(isRetry), ' data-scope');
-  h += '<div class="field"><span class="label">앞으로 7일</span><div class="week7">';
-  for (let i = 1; i <= 7; i++) {
-    const d = addDays(t, i), n = mine.filter(x => !x.done && x.due === d).length;
-    h += `<div${n ? '' : ' class="z"'}>${i === 1 ? '내일' : DOW[dparse(d).getDay()]}<b>${n}</b></div>`;
-  }
-  h += '</div></div>';
+  let h = todayCard('복습할 문제', due, mine.filter(isDue), ' data-scope') + retryCard(mine.filter(isRetry), ' data-scope');
   if (due.length) {
-    h += '<div class="field"><span class="label">오늘 목록</span>';
+    h += '<div class="field"><span class="label">복습할 목록</span>';
     const books = groupBy(due, i => i.book || '');
     if (nav.book !== null || books.size === 1) h += `<div class="rows">${due.map(rowHTML).join('')}</div>`;
     else for (const [b, bi] of books) {
@@ -1038,7 +1033,7 @@ function planText(it, mode) {
   if (mode === 'practice') return '맞혔어요! 복습 날짜는 그대로예요.';
   const c = grade(structuredClone(it), { ok: true });
   if (c.done) return `${need(it)}번 연속 정답! 이 문제는 완료예요.`;
-  return `다음 복습: ${fmt(c.due)} (${diffDays(today(), c.due)}일 뒤) · 연속 정답 ${c.streak}/${need(it)}`;
+  return `${dueIn(c)}에 다시 나와요 · 연속 정답 ${c.streak}/${need(it)}`;
 }
 
 async function commit() {
@@ -1054,7 +1049,7 @@ async function renderReview() {
   const p = $('p-review');
   if (!ses) { render(); return; }
   if (ses.i >= ses.ids.length) {
-    p.innerHTML = `<div class="hello"><b>${{ retry: '다시 풀기 끝!', exam: '시험 대비 끝!', practice: '다 풀었어요!' }[ses.mode] || '오늘 복습 끝!'}</b><p>맞힘 ${ses.ok}개 · 틀림 ${ses.bad}개</p>${ses.bad ? `<p>틀린 문제는 내일 다시 나오고, 오늘 '다시 풀기'에도 넣어 뒀어요.</p>` : ''}<button class="go" id="endBtn">처음으로</button></div>`;
+    p.innerHTML = `<div class="hello"><b>${{ retry: '다시 풀기 끝!', exam: '시험 대비 끝!', practice: '다 풀었어요!' }[ses.mode] || '복습 끝!'}</b><p>맞힘 ${ses.ok}개 · 틀림 ${ses.bad}개</p>${ses.bad ? `<p>틀린 문제는 하루 뒤에 다시 나오고, 오늘 '다시 풀기'에도 넣어 뒀어요.</p>` : ''}<button class="go" id="endBtn">처음으로</button></div>`;
     $('endBtn').onclick = () => { ses = null; render(); };
     return;
   }
@@ -1267,9 +1262,9 @@ function renderGrid() {
   const list = listFiltered(), box = $('lgrid');
   if (!list.length) box.innerHTML = `<p class="empty">${lf.q ? '찾는 문제가 없어요.' : lf.done ? '아직 완료한 문제가 없어요.' : '진행 중인 문제가 없어요.'}</p>`;
   else box.innerHTML = `<div class="practice"><button class="go line" data-practice>이 문제들 풀어 보기 (${list.length}개)</button><p class="hint">복습 날짜와 상관없이 지금 풀어요. 맞히면 날짜는 그대로고, 틀리면 다시 복습 목록에 들어가요.</p></div>` + '<div class="grid">' + list.map(it => {
-    const st = it.done ? `<small class="done">${fmtShort(it.doneDay)} 완료</small>`
-      : it.due <= today() ? `<small class="late">오늘 복습${it.due < today() ? ` (${diffDays(it.due, today())}일 밀림)` : ''}</small>`
-      : `<small>다음 ${fmtShort(it.due)} · ${it.streak}/${need(it)}</small>`;
+    const st = it.done ? '<small class="done">완료</small>'
+      : it.due <= today() ? '<small class="late">복습할 차례</small>'
+      : `<small>${dueIn(it)} · ${it.streak}/${need(it)}</small>`;
     return `<button class="card" data-open="${it.id}"><img data-ph="${it.id}-t" alt=""><b>${esc(shortName(it))}</b>${st}</button>`;
   }).join('') + '</div>';
   $('pdfCount').textContent = `지금 목록에 보이는 문제 ${list.length}개로 만들어요. 진행 중·완료와 검색으로 골라 낼 수 있어요.`;
@@ -1291,15 +1286,15 @@ function renderList() {
 async function openDetail(id) {
   const it = items.find(i => i.id === id); if (!it) return;
   const d = $('detail');
-  const state = it.done ? `${fmt(it.doneDay)} 완료` : it.due <= today() ? '오늘 복습' : `다음 복습 ${fmt(it.due)}`;
+  const state = it.done ? '완료' : it.due <= today() ? '지금 복습할 차례' : `${dueIn(it)}에 다시 나와요`;
   let h = `<div class="sheet"><div class="top"><h2>${esc(title(it))}</h2><button class="ghost" id="dClose">닫기</button></div>`;
   h += `<img class="photo" data-ph="${id}-q" alt="문제 사진">`;
-  h += `<dl class="info"><dt>상태</dt><dd>${state}</dd><dt>연속 정답</dt><dd>${it.streak} / ${need(it)}</dd>${it.book ? `<dt>문제집</dt><dd>${esc(it.book)}</dd>` : ''}<dt>난이도</dt><dd>${it.level}</dd><dt>정답</dt><dd>${esc(it.answer || '등록 안 함')}</dd><dt>등록</dt><dd>${fmt(it.created)}</dd></dl>`;
+  h += `<dl class="info"><dt>상태</dt><dd>${state}</dd><dt>연속 정답</dt><dd>${it.streak} / ${need(it)}</dd>${it.book ? `<dt>문제집</dt><dd>${esc(it.book)}</dd>` : ''}<dt>난이도</dt><dd>${it.level}</dd><dt>정답</dt><dd>${esc(it.answer || '등록 안 함')}</dd><dt>마지막으로 푼 때</dt><dd>${ago(lastSolved(it))}</dd><dt>등록</dt><dd>${ago(it.created)}</dd></dl>`;
   if (it.sol) h += `<details class="sol"><summary>해설 보기</summary><img data-ph="${id}-s" alt="해설 사진"></details>`;
   h += '<span class="label">기록</span><ol class="hist">' + it.history.slice().reverse().map(x => {
     const kind = x.reg ? '등록' : x.exam ? '시험 대비' : x.practice ? '골라 풀기' : x.retry ? '다시 풀기' : '복습';
     const why = [x.reason, x.memo].filter(Boolean).join(' — ');
-    return `<li class="${x.ok ? 'ok' : 'bad'}"><b>${fmtShort(x.day)} ${kind} · ${x.reg ? '틀린 문제' : x.ok ? '맞힘' : '틀림'}</b>${x.given ? `<span>내 답: ${esc(x.given)}</span>` : ''}${why ? `<span>${esc(why)}</span>` : ''}</li>`;
+    return `<li class="${x.ok ? 'ok' : 'bad'}"><b>${ago(x.day)} ${kind} · ${x.reg ? '틀린 문제' : x.ok ? '맞힘' : '틀림'}</b>${x.given ? `<span>내 답: ${esc(x.given)}</span>` : ''}${why ? `<span>${esc(why)}</span>` : ''}</li>`;
   }).join('') + '</ol>';
   h += `<div class="two"><button class="go line" id="dEdit">수정</button>${it.done ? '<button class="go line" id="dRestart">다시 복습하기</button>' : '<button class="del" id="dDel">삭제</button>'}</div>`;
   if (it.done) h += '<button class="del" id="dDel">삭제</button>';
@@ -1309,7 +1304,7 @@ async function openDetail(id) {
   $('dEdit').onclick = () => { d.close(); startEdit(id); };
   if ($('dRestart')) $('dRestart').onclick = async () => {
     Object.assign(it, { done: false, doneDay: null, streak: 0, due: addDays(today(), STEPS[0]) });
-    await putItem(it); d.close(); toast('내일부터 다시 복습해요'); render();
+    await putItem(it); d.close(); toast('하루 뒤부터 다시 복습해요'); render();
   };
   let armed = 0;
   $('dDel').onclick = async () => {
