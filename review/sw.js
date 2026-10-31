@@ -1,5 +1,5 @@
 // 화면 파일만 저장해 두는 서비스 워커. 문제·사진은 페이지가 IndexedDB에 저장해요.
-const CACHE = 'review-v3';
+const CACHE = 'review-v4';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
